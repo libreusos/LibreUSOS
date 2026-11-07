@@ -1,5 +1,7 @@
 .env
-.env.*
+/libreusos-release.jks
 *.swp
 /target/
 /dist/
+/.ci/
+/stage/

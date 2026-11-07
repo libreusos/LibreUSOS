@@ -1,0 +1,54 @@
+# Release builds: tag pipelines (with release) and manual "Run pipeline" (build only).
+# The build logic is in ci/*.sh; variables are listed in docs/dev/RELEASE.md.
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+stages:
+  - build
+  - release
+
+build-linux:
+  stage: build
+  image: rust:1.99.1-alpine3.23
+  script: ci/build-linux.sh
+  artifacts:
+    paths: [dist/]
+    expire_in: never
+
+build-windows:
+  stage: build
+  image: rust:1.99.1-alpine3.23
+  script: ci/build-windows.sh
+  artifacts:
+    paths: [dist/]
+    expire_in: never
+
+build-android:
+  stage: build
+  image: eclipse-temurin:21.0.13_9-jdk-noble
+  tags: [saas-linux-medium-amd64]
+  timeout: 1h
+  cache:
+    key: android-v1
+    paths:
+      - .ci/cargo/bin
+      - .ci/cargo/registry/index
+      - .ci/cargo/registry/cache
+      - .ci/gradle/caches
+      - .ci/gradle/wrapper
+      - target/android
+  script: ci/build-android.sh
+  artifacts:
+    paths: [dist/]
+    expire_in: never
+
+release:
+  stage: release
+  image: alpine:3.23.3
+  needs: [build-linux, build-windows, build-android]
+  rules:
+    - if: $CI_COMMIT_TAG
+  script: ci/release.sh
