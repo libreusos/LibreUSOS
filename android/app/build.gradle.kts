@@ -206,10 +206,17 @@ android {
         }
     }
 
+    // Package native libs only for the ABIs the Rust core is built for. JNA's AAR also ships
+    // libjnidispatch for armeabi, mips, mips64 and x86; without a filter a device of such an ABI
+    // would install the APK and then crash for lack of libusos_ffi.
     buildTypes {
         release {
             isMinifyEnabled = false
             if (releaseKeystore != null) signingConfig = signingConfigs.getByName("release")
+            ndk { abiFilters += abisFor(release = true) }
+        }
+        debug {
+            ndk { abiFilters += abisFor(release = false) }
         }
     }
 
