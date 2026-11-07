@@ -1,0 +1,10 @@
+build/
+.gradle/
+.kotlin/
+local.properties
+*.iml
+.idea/
+captures/
+# Native libraries produced by the Gradle Rust tasks (also under build/).
+**/jniLibs/**/*.so
+*.so

@@ -1,0 +1,14 @@
+LibreUSOS is an unofficial, free and open-source client for USOS, the university system used at Polish universities. It currently targets the Silesian University of Technology (PolSl).
+
+Features:
+* Sign in through your browser with USOS OAuth; your password never reaches the app
+* Today: your classes for the day at a glance
+* Timetable with a week pager and pull-to-refresh
+* Grades per term, with averages when USOS provides them
+* Tests (sprawdziany): points and results from your courses
+* Home-screen widget with the timetable
+* Background sync every 6 hours, with cached data shown first so the app also works offline
+
+No ads, no trackers, no Google services and no proprietary dependencies. The core is written in Rust and shared with other LibreUSOS clients; the app uses Kotlin and Jetpack Compose.
+
+LibreUSOS is not affiliated with or endorsed by any university or the USOS developers.

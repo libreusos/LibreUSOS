@@ -1,0 +1,1 @@
+First release: Today, Timetable, Grades, Tests, home-screen widget and background sync.

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LibreUSOS</string>
+
+    <string name="loading">Loading…</string>
+
+    <string name="login_title">Log in to USOS</string>
+    <string name="login_base_url">USOS API address</string>
+    <string name="login_consumer_key">Consumer key</string>
+    <string name="login_consumer_secret">Consumer secret</string>
+    <string name="login_key_needed">This build has no consumer key for this server. Enter the key and secret you registered for it.</string>
+    <string name="login_button">Log in</string>
+    <string name="login_in_progress">Waiting for the browser…</string>
+    <string name="login_warnings">Warnings</string>
+
+    <string name="home_title">Today</string>
+    <string name="home_logged_in_as">Logged in as %1$s</string>
+    <string name="home_timetable">Today\'s timetable</string>
+    <string name="home_no_classes">No classes today.</string>
+    <string name="home_source_live">Live data</string>
+    <string name="home_source_cached">Cached data, fetched %1$s</string>
+    <string name="home_refresh">Refresh</string>
+    <string name="home_logout">Log out</string>
+    <string name="home_unnamed">(unnamed)</string>
+
+    <string name="nav_today">Today</string>
+    <string name="nav_timetable">Timetable</string>
+    <string name="nav_grades">Grades</string>
+    <string name="grades_tab_tests">Tests</string>
+
+    <string name="timetable_previous_week">Previous week</string>
+    <string name="timetable_next_week">Next week</string>
+    <string name="timetable_today">Today</string>
+    <string name="timetable_empty_day">No classes this day.</string>
+    <string name="timetable_cached_at">Cached at %1$s</string>
+    <string name="timetable_refresh_failed">Couldn\'t refresh, showing data from %1$s</string>
+    <string name="timetable_offline_cached_at">Offline, cached at %1$s</string>
+
+    <string name="grades_empty">No grades yet.</string>
+    <string name="grades_cached_at">Cached at %1$s</string>
+    <string name="grades_offline_cached_at">Offline, cached at %1$s</string>
+    <string name="grades_refresh_failed">Couldn\'t refresh, showing data from %1$s</string>
+    <string name="grades_average">Average %1$s</string>
+    <string name="grades_weighted_average">ECTS-weighted %1$s</string>
+    <string name="grades_ects">%1$s ECTS</string>
+    <string name="grades_session_first">1st sitting</string>
+    <string name="grades_session_retake">Retake</string>
+    <string name="grades_session_later">Sitting %1$d</string>
+    <string name="grades_passed">Passed</string>
+    <string name="grades_failed">Failed</string>
+    <string name="grades_no_symbol">no grade</string>
+
+    <string name="tests_empty">No tests yet.</string>
+    <string name="tests_cached_at">Cached at %1$s</string>
+    <string name="tests_offline_cached_at">Offline, cached at %1$s</string>
+    <string name="tests_refresh_failed">Couldn\'t refresh, showing data from %1$s</string>
+    <string name="tests_skipped">Some tests couldn\'t be loaded.</string>
+    <string name="tests_points_total">Points %1$s</string>
+    <string name="tests_limited">For selected groups only</string>
+    <string name="tests_hidden">Hidden by the lecturer</string>
+    <string name="tests_expand">Expand</string>
+    <string name="tests_collapse">Collapse</string>
+
+    <string name="activity_room">Room %1$s</string>
+    <string name="activity_group">Group %1$d</string>
+    <string name="activity_overlaps">Overlaps</string>
+    <string name="kind_exam">Exam</string>
+    <string name="kind_meeting">Meeting</string>
+
+    <string name="frequency_fortnight">Every other week</string>
+    <string name="frequency_fortnight_odd">Every other week (odd)</string>
+    <string name="frequency_fortnight_even">Every other week (even)</string>
+    <string name="frequency_month">Monthly</string>
+    <string name="frequency_working_day">Every working day</string>
+    <string name="frequency_weekend">Weekends</string>
+    <string name="frequency_day">Every day</string>
+    <string name="frequency_once">One-off</string>
+    <string name="frequency_irregular">Irregular</string>
+
+    <string name="error_prefix">Error: %1$s</string>
+    <string name="error_network">Cannot reach the server. Check your connection and try again.</string>
+    <string name="error_unauthorized">Authorization was denied or is no longer valid.</string>
+    <string name="error_api">The server rejected the request.</string>
+    <string name="error_not_cached">Nothing is stored for offline use yet.</string>
+    <string name="error_storage">Cannot read or write the secure storage of the app.</string>
+    <string name="error_invalid_input">The address or the login data is not valid.</string>
+    <string name="error_key_missing">The consumer key and secret are missing.</string>
+    <string name="error_no_login">No login is in progress. Start again.</string>
+    <string name="error_no_browser">No browser found to open the login page.</string>
+    <string name="error_session_expired">Your session has expired. Log in again.</string>
+    <string name="error_unknown">Something went wrong.</string>
+
+    <string name="widget_name">Today and next</string>
+    <string name="widget_description">Your remaining classes today, or the next day with classes.</string>
+    <string name="widget_today">Today</string>
+    <string name="widget_tomorrow">Tomorrow</string>
+    <string name="widget_cached">cached %1$s</string>
+    <string name="widget_more">+%1$d more</string>
+    <string name="widget_empty">No classes in the next few days.</string>
+    <string name="widget_logged_out">Open LibreUSOS to log in and see your timetable.</string>
+    <string name="widget_no_data">No timetable saved yet. Tap to open LibreUSOS and load it.</string>
+    <string name="widget_preview_class1">Algorithms</string>
+    <string name="widget_preview_class2">Databases</string>
+    <string name="widget_preview_class3">Calculus</string>
+    <string name="widget_preview_room1" translatable="false">201</string>
+    <string name="widget_preview_room2" translatable="false">315</string>
+    <string name="widget_preview_room3" translatable="false">12</string>
+</resources>

@@ -1,0 +1,1 @@
+Unofficial open-source USOS client: timetable, grades, tests and a widget

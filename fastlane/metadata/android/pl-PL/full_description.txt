@@ -1,0 +1,14 @@
+LibreUSOS to nieoficjalny, darmowy klient systemu USOS o otwartym kodzie źródłowym. Na razie obsługuje Politechnikę Śląską (PolSl).
+
+Funkcje:
+* Logowanie przez przeglądarkę (OAuth USOS); hasło nigdy nie trafia do aplikacji
+* Dziś: zajęcia na dany dzień w jednym miejscu
+* Plan zajęć z przewijaniem tygodni i odświeżaniem przeciągnięciem
+* Oceny z podziałem na semestry, ze średnimi, gdy USOS je udostępnia
+* Sprawdziany: punkty i wyniki z Twoich przedmiotów
+* Widżet planu zajęć na ekranie głównym
+* Synchronizacja w tle co 6 godzin; najpierw pokazywane są dane z pamięci podręcznej, więc aplikacja działa także offline
+
+Bez reklam, bez trackerów, bez usług Google i bez zamkniętych zależności. Rdzeń napisany jest w Rust i współdzielony z innymi klientami LibreUSOS; aplikacja korzysta z Kotlina i Jetpack Compose.
+
+LibreUSOS nie jest powiązany z żadną uczelnią ani twórcami USOS i nie jest przez nich wspierany.

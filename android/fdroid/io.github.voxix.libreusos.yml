@@ -1,0 +1,10 @@
+# Metadata for our own F-Droid repo or IzzyOnDroid (not the main F-Droid repo). The APK is built by our CI or locally,
+# with the USOS consumer key injected at build time (USOS_CONSUMER_KEY/USOS_CONSUMER_SECRET); the key is never committed.
+Categories:
+  - Science & Education
+License: GPL-3.0-or-later
+AuthorName: voxix
+SourceCode: https://codeberg.org/voxix/libreusos
+IssueTracker: https://codeberg.org/voxix/libreusos/issues
+
+AutoName: LibreUSOS

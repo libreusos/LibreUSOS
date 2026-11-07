@@ -1,0 +1,37 @@
+[package]
+name = "usos-ffi"
+description = "UniFFI bindings of the LibreUSOS core for Kotlin (Android)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+name = "usos_ffi"
+crate-type = ["cdylib", "lib"]
+
+# The bindings generator, run in library mode:
+#   cargo run -p usos-ffi --features bindgen-cli --bin uniffi-bindgen -- \
+#     generate --library target/debug/libusos_ffi.so --language kotlin --out-dir <dir>
+# Off by default so that Android builds do not compile the generator.
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["bindgen-cli"]
+
+[features]
+bindgen-cli = ["uniffi/cli"]
+
+[dependencies]
+chrono.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+url.workspace = true
+uniffi = { version = "=0.32.2", features = ["tokio"] }
+usos-core.workspace = true
+usos-store.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+tempfile.workspace = true

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LibreUSOS</string>
+
+    <string name="loading">Ładowanie…</string>
+
+    <string name="login_title">Logowanie do USOS</string>
+    <string name="login_base_url">Adres API USOS</string>
+    <string name="login_consumer_key">Klucz konsumenta</string>
+    <string name="login_consumer_secret">Sekret konsumenta</string>
+    <string name="login_key_needed">Ta wersja aplikacji nie zawiera klucza konsumenta dla tego serwera. Podaj klucz i sekret zarejestrowane dla niego.</string>
+    <string name="login_button">Zaloguj</string>
+    <string name="login_in_progress">Czekam na przeglądarkę…</string>
+    <string name="login_warnings">Ostrzeżenia</string>
+
+    <string name="home_title">Dziś</string>
+    <string name="home_logged_in_as">Zalogowano jako %1$s</string>
+    <string name="home_timetable">Dzisiejszy plan zajęć</string>
+    <string name="home_no_classes">Dziś nie ma zajęć.</string>
+    <string name="home_source_live">Dane na żywo</string>
+    <string name="home_source_cached">Dane z pamięci podręcznej, pobrane %1$s</string>
+    <string name="home_refresh">Odśwież</string>
+    <string name="home_logout">Wyloguj</string>
+    <string name="home_unnamed">(bez nazwy)</string>
+
+    <string name="nav_today">Dziś</string>
+    <string name="nav_timetable">Plan zajęć</string>
+    <string name="nav_grades">Oceny</string>
+    <string name="grades_tab_tests">Sprawdziany</string>
+
+    <string name="timetable_previous_week">Poprzedni tydzień</string>
+    <string name="timetable_next_week">Następny tydzień</string>
+    <string name="timetable_today">Dziś</string>
+    <string name="timetable_empty_day">Tego dnia nie ma zajęć.</string>
+    <string name="timetable_cached_at">Z pamięci podręcznej, %1$s</string>
+    <string name="timetable_refresh_failed">Nie udało się odświeżyć, widoczne dane z %1$s</string>
+    <string name="timetable_offline_cached_at">Offline, z pamięci podręcznej, %1$s</string>
+
+    <string name="grades_empty">Nie ma jeszcze żadnych ocen.</string>
+    <string name="grades_cached_at">Z pamięci podręcznej, %1$s</string>
+    <string name="grades_offline_cached_at">Offline, z pamięci podręcznej, %1$s</string>
+    <string name="grades_refresh_failed">Nie udało się odświeżyć, widoczne dane z %1$s</string>
+    <string name="grades_average">Średnia %1$s</string>
+    <string name="grades_weighted_average">Średnia ważona ECTS %1$s</string>
+    <string name="grades_ects">%1$s ECTS</string>
+    <string name="grades_session_first">1. termin</string>
+    <string name="grades_session_retake">2. termin (poprawkowy)</string>
+    <string name="grades_session_later">%1$d. termin</string>
+    <string name="grades_passed">Zaliczone</string>
+    <string name="grades_failed">Niezaliczone</string>
+    <string name="grades_no_symbol">brak oceny</string>
+
+    <string name="tests_empty">Nie ma jeszcze żadnych sprawdzianów.</string>
+    <string name="tests_cached_at">Z pamięci podręcznej, %1$s</string>
+    <string name="tests_offline_cached_at">Offline, z pamięci podręcznej, %1$s</string>
+    <string name="tests_refresh_failed">Nie udało się odświeżyć, widoczne dane z %1$s</string>
+    <string name="tests_skipped">Nie udało się wczytać części sprawdzianów.</string>
+    <string name="tests_points_total">Punkty %1$s</string>
+    <string name="tests_limited">Dotyczy wybranych grup</string>
+    <string name="tests_hidden">Ukryte przez prowadzącego</string>
+    <string name="tests_expand">Rozwiń</string>
+    <string name="tests_collapse">Zwiń</string>
+
+    <string name="activity_room">Sala %1$s</string>
+    <string name="activity_group">Grupa %1$d</string>
+    <string name="activity_overlaps">Nakłada się</string>
+    <string name="kind_exam">Egzamin</string>
+    <string name="kind_meeting">Spotkanie</string>
+
+    <string name="frequency_fortnight">Co drugi tydzień</string>
+    <string name="frequency_fortnight_odd">Co drugi tydzień (nieparzysty)</string>
+    <string name="frequency_fortnight_even">Co drugi tydzień (parzysty)</string>
+    <string name="frequency_month">Raz w miesiącu</string>
+    <string name="frequency_working_day">W dni robocze</string>
+    <string name="frequency_weekend">W weekendy</string>
+    <string name="frequency_day">Codziennie</string>
+    <string name="frequency_once">Jednorazowo</string>
+    <string name="frequency_irregular">Nieregularnie</string>
+
+    <string name="error_prefix">Błąd: %1$s</string>
+    <string name="error_network">Nie można połączyć się z serwerem. Sprawdź połączenie i spróbuj ponownie.</string>
+    <string name="error_unauthorized">Autoryzacja została odrzucona lub nie jest już ważna.</string>
+    <string name="error_api">Serwer odrzucił żądanie.</string>
+    <string name="error_not_cached">Nic jeszcze nie zapisano do użytku offline.</string>
+    <string name="error_storage">Nie można odczytać ani zapisać bezpiecznej pamięci aplikacji.</string>
+    <string name="error_invalid_input">Adres lub dane logowania są nieprawidłowe.</string>
+    <string name="error_key_missing">Brakuje klucza i sekretu konsumenta.</string>
+    <string name="error_no_login">Logowanie nie jest w toku. Zacznij od nowa.</string>
+    <string name="error_no_browser">Nie znaleziono przeglądarki, aby otworzyć stronę logowania.</string>
+    <string name="error_session_expired">Sesja wygasła. Zaloguj się ponownie.</string>
+    <string name="error_unknown">Coś poszło nie tak.</string>
+
+    <string name="widget_name">Dziś i następne</string>
+    <string name="widget_description">Pozostałe dziś zajęcia albo zajęcia z najbliższego dnia, w którym są.</string>
+    <string name="widget_today">Dziś</string>
+    <string name="widget_tomorrow">Jutro</string>
+    <string name="widget_cached">stan z %1$s</string>
+    <string name="widget_more">+%1$d więcej</string>
+    <string name="widget_empty">Brak zajęć w najbliższych dniach.</string>
+    <string name="widget_logged_out">Otwórz LibreUSOS, aby się zalogować i zobaczyć plan zajęć.</string>
+    <string name="widget_no_data">Brak zapisanego planu. Dotknij, aby otworzyć LibreUSOS i go pobrać.</string>
+    <string name="widget_preview_class1">Algorytmy</string>
+    <string name="widget_preview_class2">Bazy danych</string>
+    <string name="widget_preview_class3">Analiza matematyczna</string>
+</resources>

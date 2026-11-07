@@ -1,0 +1,53 @@
+[package]
+name = "usos-core"
+description = "GUI-agnostic USOS API client core for LibreUSOS (unofficial)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[features]
+default = ["loopback"]
+# The 127.0.0.1 OAuth callback server. Platforms that receive the verifier some
+# other way (e.g. a custom URL scheme on Android) can build without it.
+loopback = ["dep:tokio"]
+# Verify TLS against the bundled Mozilla roots (the `webpki-root-certs` crate) instead of the
+# platform verifier. Always on for Android, where the platform verifier needs a JNI init with an
+# Android Context.
+webpki-roots = ["dep:webpki-root-certs"]
+
+[dependencies]
+base64.workspace = true
+chrono.workspace = true
+dirs.workspace = true
+futures-util.workspace = true
+getrandom.workspace = true
+hmac.workspace = true
+humantime.workspace = true
+percent-encoding.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha1.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, optional = true }
+toml.workspace = true
+url.workspace = true
+webpki-root-certs = { version = "1", optional = true }
+zeroize.workspace = true
+
+# The system keyring is optional at runtime: when it is unavailable the store
+# falls back to a 0600 file. Pure-Rust Secret Service (zbus), no libdbus/openssl.
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3.6", default-features = false, features = ["async-secret-service", "crypto-rust"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+webpki-root-certs = "1"
+
+[build-dependencies]
+url.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio.workspace = true
