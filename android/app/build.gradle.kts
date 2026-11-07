@@ -181,12 +181,12 @@ abstract class UniffiBindgenTask @Inject constructor(private val exec: ExecOpera
 }
 
 android {
-    namespace = "io.github.voxix.libreusos"
+    namespace = "io.gitlab.voxix.libreusos"
     compileSdk = 36
     ndkVersion = pinnedNdkVersion
 
     defaultConfig {
-        applicationId = "io.github.voxix.libreusos"
+        applicationId = "io.gitlab.voxix.libreusos"
         minSdk = minSdkVersion
         targetSdk = 36
         versionCode = 1
@@ -201,7 +201,7 @@ android {
                 storeFile = file(releaseKeystore)
                 storePassword = System.getenv("LIBREUSOS_KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("LIBREUSOS_KEY_ALIAS")
-                keyPassword = System.getenv("LIBREUSOS_KEY_PASSWORD")
+                keyPassword = storePassword // one password for keystore and key (PKCS12)
             }
         }
     }

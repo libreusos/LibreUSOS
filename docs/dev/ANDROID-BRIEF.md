@@ -31,7 +31,7 @@ Delegate implementation, tests, builds and reviews to subagents.
 ## Was open, now decided (2026-11-04)
 
 Compose with Material 3 dynamic color; MVVM with manual DI; Glance widgets fed from the core cache; WorkManager
-sync every 6 h; no reminders for now; UnifiedPush later; minSdk 26; package `io.github.voxix.libreusos`;
+sync every 6 h; no reminders for now; UnifiedPush later; minSdk 26; package `io.gitlab.voxix.libreusos`;
 license GPL-3.0-or-later. The list below is kept for history.
 
 ## Originally not decided

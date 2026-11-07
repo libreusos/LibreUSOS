@@ -4,7 +4,8 @@
 //! as absent; empty counts as unset):
 //! 1. environment: `USOS_CONSUMER_KEY`, `USOS_CONSUMER_SECRET` (CI sets these as secrets);
 //! 2. the workspace `.env` (`CARGO_MANIFEST_DIR/../../.env`): the same names, or the legacy
-//!    `CONSUMER_KEY` / `CONSUMER_SECRET`.
+//!    `USOS_POLSL_CONSUMER_KEY` / `USOS_POLSL_CONSUMER_SECRET` (the CI variable names, see `.env.example`), or
+//!    the legacy `CONSUMER_KEY` / `CONSUMER_SECRET`.
 //!
 //! After adding a `.env`, run `touch crates/usos-core/build.rs` (a missing file cannot be watched).
 //!
@@ -25,6 +26,8 @@ fn main() {
     for var in [
         "USOS_CONSUMER_KEY",
         "USOS_CONSUMER_SECRET",
+        "USOS_POLSL_CONSUMER_KEY",
+        "USOS_POLSL_CONSUMER_SECRET",
         "CONSUMER_KEY",
         "CONSUMER_SECRET",
         "USOS_KEY_BASE_URL",
@@ -69,8 +72,8 @@ fn main() {
                 .find(|v| !v.is_empty())
         };
         Some((
-            pick(&["USOS_CONSUMER_KEY", "CONSUMER_KEY"])?,
-            pick(&["USOS_CONSUMER_SECRET", "CONSUMER_SECRET"])?,
+            pick(&["USOS_CONSUMER_KEY", "USOS_POLSL_CONSUMER_KEY", "CONSUMER_KEY"])?,
+            pick(&["USOS_CONSUMER_SECRET", "USOS_POLSL_CONSUMER_SECRET", "CONSUMER_SECRET"])?,
         ))
     };
 

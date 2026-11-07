@@ -53,7 +53,7 @@ Owned by the Android session (`docs/dev/ANDROID-BRIEF.md`).
   settings.
 - **Class reminders:** not now.
 - **Push:** later, as opt-in UnifiedPush through `usos-daemon` and ntfy, once polling works.
-- **minSdk:** 26. **Package id:** `io.github.voxix.libreusos`. **License:** GPL-3.0-or-later, for the whole project.
+- **minSdk:** 26. **Package id:** `io.gitlab.voxix.libreusos`. **License:** GPL-3.0-or-later, for the whole project.
 - **Consumer key:** embedded at build time by usos-core (main session decision). It never goes in Kotlin or Gradle.
 
 ## Milestone: the whole chain works (2026-11-05)
@@ -67,7 +67,7 @@ Owned by the Android session (`docs/dev/ANDROID-BRIEF.md`).
      the `libreusos://` redirect with mode 0600.
   3. Open `https://usosapi.polsl.pl/services/oauth/authorize?oauth_token=<T>&interactivity=minimal` with
      `ghostex browser open ... --project-id P3l0h`, and the user logs in.
-  4. Deliver the redirect: `adb shell "am start -a android.intent.action.VIEW -d '<url>' io.github.voxix.libreusos"`.
+  4. Deliver the redirect: `adb shell "am start -a android.intent.action.VIEW -d '<url>' io.gitlab.voxix.libreusos"`.
 - **Next UI fixes, as seen live:**
   - Fixed (shared `ActivityCard`, checked 2026-11-06): the title is the course name; the class type is a chip.
   - Still open: the building line is the full faculty name (it fits on one line on the emulator); a short building code would be nicer.
@@ -156,10 +156,10 @@ Owned by the Android session (`docs/dev/ANDROID-BRIEF.md`).
 
 - **Decision (user):** IzzyOnDroid or our own F-Droid repo, not the main F-Droid repo. CI or the local env injects the
   consumer key at build time (usos-core's build.rs); it is never committed.
-- **Metadata:** `android/fdroid/io.github.voxix.libreusos.yml` (passes `fdroid lint`). Store text is in `fastlane/metadata/android/{en-US,pl-PL}`
+- **Metadata:** `android/fdroid/io.gitlab.voxix.libreusos.yml` (passes `fdroid lint`). Store text is in `fastlane/metadata/android/{en-US,pl-PL}`
   at the repo root, the only place IzzyOnDroid and fdroidserver read.
-- **Signing:** release is signed when `LIBREUSOS_KEYSTORE`, `LIBREUSOS_KEYSTORE_PASSWORD`, `LIBREUSOS_KEY_ALIAS` and
-  `LIBREUSOS_KEY_PASSWORD` are set; otherwise the APK is unsigned.
+- **Signing:** release is signed when `LIBREUSOS_KEYSTORE`, `LIBREUSOS_KEYSTORE_PASSWORD` and `LIBREUSOS_KEY_ALIAS` are set (the key
+  password is the keystore password); otherwise the APK is unsigned.
 - **ABIs:** `gradle.properties` no longer pins them: debug x86_64, release arm64-v8a, armeabi-v7a and x86_64;
   `-Plibreusos.abis=a,b` overrides.
 - **Release command:** `cd android && ./gradlew assembleRelease` (with the key and signing env vars set).
