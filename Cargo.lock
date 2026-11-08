@@ -2773,6 +2773,7 @@ dependencies = [
  "keyring",
  "percent-encoding",
  "reqwest",
+ "secret-service",
  "serde",
  "serde_json",
  "sha1 0.11.0",

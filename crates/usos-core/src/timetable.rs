@@ -329,16 +329,78 @@ fn out_of_range(day: NaiveDate) -> Error {
 /// For each activity, whether it overlaps another one starting on the same day (input order).
 /// Back-to-back activities (one ends exactly when the next starts) do not clash.
 pub fn clashes(activities: &[Activity]) -> Vec<bool> {
-    activities
+    let mut days: BTreeMap<NaiveDate, Vec<usize>> = BTreeMap::new();
+    for (i, a) in activities.iter().enumerate() {
+        days.entry(a.date()).or_default().push(i);
+    }
+    let mut out = vec![false; activities.len()];
+    for ids in days.values() {
+        clashes_in_day(activities, ids, &mut out);
+    }
+    out
+}
+
+/// Sweep over the activities `ids` that start on one day: O(n log n), same predicate as the
+/// pairwise test `a.start < b.end && b.start < a.end`.
+fn clashes_in_day(activities: &[Activity], ids: &[usize], out: &mut [bool]) {
+    // Activities that end before they start are malformed; they only clash with well-formed
+    // activities that strictly contain the reversed interval, so they are handled apart.
+    let (mut well, mut inverted): (Vec<usize>, Vec<usize>) = ids
         .iter()
-        .enumerate()
-        .map(|(i, a)| {
-            activities
-                .iter()
-                .enumerate()
-                .any(|(j, b)| i != j && a.date() == b.date() && a.start < b.end && b.start < a.end)
-        })
-        .collect()
+        .partition(|&&i| activities[i].end >= activities[i].start);
+    well.sort_by_key(|&i| activities[i].start);
+    // Well-formed: a clash is an earlier start that ends after this start, a later start before
+    // this end, or another non-empty activity with the same start (empty ones touch nothing at
+    // their own start).
+    let mut max_end: Option<NaiveDateTime> = None;
+    let mut at = 0;
+    while at < well.len() {
+        let start = activities[well[at]].start;
+        let stop = at + well[at..].partition_point(|&i| activities[i].start == start);
+        let run = &well[at..stop];
+        let next_start = well.get(stop).map(|&k| activities[k].start);
+        let non_empty = run.iter().filter(|&&i| activities[i].end > start).count();
+        for &i in run {
+            let end = activities[i].end;
+            out[i] = max_end.is_some_and(|e| e > start)
+                || next_start.is_some_and(|n| n < end)
+                || (end > start && non_empty > 1);
+        }
+        let run_end = run.iter().map(|&i| activities[i].end).max();
+        max_end = max_end.max(run_end);
+        at = stop;
+    }
+    if inverted.is_empty() {
+        return;
+    }
+    // Inverted `a` (reversed interval lo..hi) clashes with well-formed `b` iff b.start < lo && hi < b.end.
+    let lo = |i: usize| activities[i].end;
+    let hi = |i: usize| activities[i].start;
+    let mut prefix_max_end = Vec::with_capacity(well.len());
+    for &i in &well {
+        let e = activities[i].end;
+        prefix_max_end.push(
+            prefix_max_end
+                .last()
+                .map_or(e, |&m: &NaiveDateTime| m.max(e)),
+        );
+    }
+    for &a in &inverted {
+        let n = well.partition_point(|&b| activities[b].start < lo(a));
+        out[a] = n > 0 && prefix_max_end[n - 1] > hi(a);
+    }
+    inverted.sort_by_key(|&a| lo(a));
+    let mut suffix_min_hi = vec![None; inverted.len() + 1];
+    for k in (0..inverted.len()).rev() {
+        let h = hi(inverted[k]);
+        suffix_min_hi[k] = Some(suffix_min_hi[k + 1].map_or(h, |m: NaiveDateTime| m.min(h)));
+    }
+    for &b in &well {
+        let n = inverted.partition_point(|&a| lo(a) <= activities[b].start);
+        if suffix_min_hi[n].is_some_and(|h| h < activities[b].end) {
+            out[b] = true;
+        }
+    }
 }
 
 /// The activities starting on one day.
@@ -647,6 +709,119 @@ mod tests {
         ]))
         .unwrap()
         .remove(0)
+    }
+
+    fn naive_clashes(activities: &[Activity]) -> Vec<bool> {
+        activities
+            .iter()
+            .enumerate()
+            .map(|(i, a)| {
+                activities.iter().enumerate().any(|(j, b)| {
+                    i != j && a.date() == b.date() && a.start < b.end && b.start < a.end
+                })
+            })
+            .collect()
+    }
+
+    fn span(start: &str, end: &str) -> Activity {
+        let mut a = parse_activities(serde_json::json!([{
+            "type": "classgroup", "start_time": "2026-11-02 08:00:00", "end_time": "2026-11-02 09:00:00"
+        }]))
+        .unwrap()
+        .remove(0);
+        a.start = start.parse().unwrap();
+        a.end = end.parse().unwrap();
+        a
+    }
+
+    #[test]
+    fn clashes_match_the_pairwise_definition() {
+        let cases: Vec<Vec<(&str, &str)>> = vec![
+            vec![
+                ("2026-11-02T08:00:00", "2026-11-02T09:00:00"),
+                ("2026-11-02T09:00:00", "2026-11-02T10:00:00"),
+            ],
+            vec![
+                ("2026-11-02T08:00:00", "2026-11-02T12:00:00"),
+                ("2026-11-02T09:00:00", "2026-11-02T10:00:00"),
+            ],
+            vec![
+                ("2026-11-02T08:00:00", "2026-11-02T09:00:00"),
+                ("2026-11-02T08:00:00", "2026-11-02T09:00:00"),
+            ],
+            vec![
+                ("2026-11-02T08:00:00", "2026-11-02T08:00:00"),
+                ("2026-11-02T08:00:00", "2026-11-02T08:00:00"),
+            ],
+            vec![
+                ("2026-11-02T08:00:00", "2026-11-02T08:00:00"),
+                ("2026-11-02T08:00:00", "2026-11-02T09:00:00"),
+            ],
+            vec![
+                ("2026-11-02T08:30:00", "2026-11-02T08:30:00"),
+                ("2026-11-02T08:00:00", "2026-11-02T09:00:00"),
+            ],
+            vec![
+                ("2026-11-02T09:00:00", "2026-11-02T09:00:00"),
+                ("2026-11-02T08:00:00", "2026-11-02T09:00:00"),
+            ],
+            // Spans midnight; compared only with activities starting the same day.
+            vec![
+                ("2026-11-02T22:00:00", "2026-11-03T02:00:00"),
+                ("2026-11-03T01:00:00", "2026-11-03T03:00:00"),
+                ("2026-11-02T23:00:00", "2026-11-03T00:30:00"),
+            ],
+            // Multi-day spans.
+            vec![
+                ("2026-11-02T08:00:00", "2026-11-04T08:00:00"),
+                ("2026-11-02T20:00:00", "2026-11-05T00:00:00"),
+                ("2026-11-03T08:00:00", "2026-11-03T09:00:00"),
+            ],
+            // Inverted (end before start).
+            vec![
+                ("2026-11-02T10:00:00", "2026-11-02T09:00:00"),
+                ("2026-11-02T08:00:00", "2026-11-02T12:00:00"),
+            ],
+            vec![
+                ("2026-11-02T10:00:00", "2026-11-02T09:00:00"),
+                ("2026-11-02T09:00:00", "2026-11-02T12:00:00"),
+            ],
+            vec![
+                ("2026-11-02T10:00:00", "2026-11-02T09:00:00"),
+                ("2026-11-02T09:30:00", "2026-11-02T09:45:00"),
+                ("2026-11-02T10:00:00", "2026-11-02T08:00:00"),
+            ],
+        ];
+        for case in cases {
+            let list: Vec<Activity> = case.iter().map(|(s, e)| span(s, e)).collect();
+            assert_eq!(clashes(&list), naive_clashes(&list), "{case:?}");
+        }
+    }
+
+    #[test]
+    fn clashes_match_the_pairwise_definition_on_pseudo_random_input() {
+        let mut state = 12345_u64;
+        let mut next = move |m: u64| {
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            (state >> 33) % m
+        };
+        let base: NaiveDateTime = "2026-11-02T00:00:00".parse().unwrap();
+        for _ in 0..500 {
+            let n = next(12) as usize;
+            let list: Vec<Activity> = (0..n)
+                .map(|_| {
+                    let start = base + chrono::Duration::minutes(next(40) as i64 * 30);
+                    let end = base + chrono::Duration::minutes(next(40) as i64 * 30);
+                    span(
+                        &start.to_string().replace(' ', "T"),
+                        &end.to_string().replace(' ', "T"),
+                    )
+                })
+                .collect();
+            assert_eq!(clashes(&list), naive_clashes(&list), "{list:?}");
+        }
     }
 
     #[test]

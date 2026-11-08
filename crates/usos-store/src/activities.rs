@@ -5,7 +5,7 @@ use rusqlite::{TransactionBehavior, params};
 use usos_core::Activity;
 
 use crate::error::{Result, StoreError};
-use crate::store::{Store, parse_ts, ts};
+use crate::store::{Store, ensure_active, parse_ts, ts};
 
 const DATE: &str = "%Y-%m-%d";
 const DATETIME: &str = "%Y-%m-%dT%H:%M:%S";
@@ -56,6 +56,28 @@ impl Store {
         to: NaiveDate,
         activities: &[Activity],
     ) -> Result<ReplaceOutcome> {
+        self.replace(account, from, to, activities, false)
+    }
+
+    /// [`Store::replace_activities`], only while `account` is active.
+    pub(crate) fn replace_activities_if_active(
+        &self,
+        account: &str,
+        from: NaiveDate,
+        to: NaiveDate,
+        activities: &[Activity],
+    ) -> Result<ReplaceOutcome> {
+        self.replace(account, from, to, activities, true)
+    }
+
+    fn replace(
+        &self,
+        account: &str,
+        from: NaiveDate,
+        to: NaiveDate,
+        activities: &[Activity],
+        only_if_active: bool,
+    ) -> Result<ReplaceOutcome> {
         check_range(from, to)?;
         let now = ts(Utc::now());
         let (from_s, to_s) = (from.format(DATE).to_string(), to.format(DATE).to_string());
@@ -80,6 +102,9 @@ impl Store {
 
         let mut conn = self.lock();
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if only_if_active {
+            ensure_active(&tx, account)?;
+        }
         let old: Vec<String> = tx
             .prepare_cached(
                 "SELECT json FROM activities WHERE account = ?1 AND date BETWEEN ?2 AND ?3

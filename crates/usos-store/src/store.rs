@@ -165,15 +165,41 @@ impl Store {
     pub fn delete_account(&self, account: &str) -> Result<()> {
         let mut conn = self.lock();
         let tx = conn.transaction()?;
-        for table in ["activities", "activity_days", "snapshots"] {
-            tx.execute(
-                &format!("DELETE FROM {table} WHERE account = ?1"),
-                params![account],
-            )?;
-        }
-        tx.execute("DELETE FROM meta WHERE value = ?1", params![account])?;
+        delete_rows(&tx, account)?;
         tx.commit()?;
         Ok(())
+    }
+
+    /// How many times [`Store::forget_active_account`] ran for `base_url`. Read before a fetch
+    /// and compared when its result is stored, it tells whether a logout happened in between.
+    pub fn session_epoch(&self, base_url: &str) -> Result<u64> {
+        read_epoch(&self.lock(), base_url)
+    }
+
+    /// Logout: in one transaction, bump the [`Store::session_epoch`] of `base_url`, delete
+    /// everything cached for its active account and forget that it was active. Returns that
+    /// account, if there was one.
+    pub fn forget_active_account(&self, base_url: &str) -> Result<Option<String>> {
+        let mut conn = self.lock();
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let next = read_epoch(&tx, base_url)? + 1;
+        tx.execute(
+            "INSERT INTO meta (key, value) VALUES (?1, ?2)
+             ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+            params![epoch_key(base_url), next.to_string()],
+        )?;
+        let account: Option<String> = tx
+            .query_row(
+                "SELECT value FROM meta WHERE key = ?1",
+                params![active_key(base_url)],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if let Some(account) = &account {
+            delete_rows(&tx, account)?;
+        }
+        tx.commit()?;
+        Ok(account)
     }
 
     pub(crate) fn lock(&self) -> MutexGuard<'_, Connection> {
@@ -183,8 +209,54 @@ impl Store {
     }
 }
 
-fn active_key(base_url: &str) -> String {
+pub(crate) fn active_key(base_url: &str) -> String {
     format!("active_account:{}", base_url.trim().trim_end_matches('/'))
+}
+
+fn epoch_key(base_url: &str) -> String {
+    format!("session_epoch:{}", base_url.trim().trim_end_matches('/'))
+}
+
+pub(crate) fn read_epoch(conn: &Connection, base_url: &str) -> Result<u64> {
+    let value: Option<String> = conn
+        .query_row(
+            "SELECT value FROM meta WHERE key = ?1",
+            params![epoch_key(base_url)],
+            |r| r.get(0),
+        )
+        .optional()?;
+    value.map_or(Ok(0), |v| {
+        v.parse()
+            .map_err(|_| StoreError::Corrupt(format!("session epoch {v:?}")))
+    })
+}
+
+/// `Err(LoggedOut)` unless `account` is the active account of some installation. Cache writes
+/// of a fetch call it in their own transaction: after a logout the account is no longer active,
+/// so a fetch that was running then cannot fill the cache again.
+pub(crate) fn ensure_active(conn: &Connection, account: &str) -> Result<()> {
+    let active: bool = conn.query_row(
+        "SELECT EXISTS (SELECT 1 FROM meta
+                        WHERE substr(key, 1, 15) = 'active_account:' AND value = ?1)",
+        params![account],
+        |r| r.get(0),
+    )?;
+    if active {
+        Ok(())
+    } else {
+        Err(StoreError::LoggedOut)
+    }
+}
+
+fn delete_rows(conn: &Connection, account: &str) -> Result<()> {
+    for table in ["activities", "activity_days", "snapshots"] {
+        conn.execute(
+            &format!("DELETE FROM {table} WHERE account = ?1"),
+            params![account],
+        )?;
+    }
+    conn.execute("DELETE FROM meta WHERE value = ?1", params![account])?;
+    Ok(())
 }
 
 fn user_version(conn: &Connection) -> Result<u32> {
