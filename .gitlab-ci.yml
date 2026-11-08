@@ -32,9 +32,11 @@ build-android:
   tags: [saas-linux-medium-amd64]
   timeout: 1h
   cache:
-    key: android-v1
+    key: android-v2
     paths:
       - .ci/cargo/bin
+      - .ci/cargo/.crates.toml
+      - .ci/cargo/.crates2.json
       - .ci/cargo/registry/index
       - .ci/cargo/registry/cache
       - .ci/gradle/caches
