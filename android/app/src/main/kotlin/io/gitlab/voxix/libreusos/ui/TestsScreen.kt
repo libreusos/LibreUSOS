@@ -1,286 +1,177 @@
 package io.gitlab.voxix.libreusos.ui
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LifecycleEventEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.gitlab.voxix.libreusos.R
-import io.gitlab.voxix.libreusos.data.pick
-import org.libreusos.core.TestNode
-import org.libreusos.core.TestNodeKind
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
+import io.gitlab.voxix.libreusos.ui.components.GroupedListCard
+import io.gitlab.voxix.libreusos.ui.components.GroupedListRow
+import io.gitlab.voxix.libreusos.ui.theme.Radii
+import io.gitlab.voxix.libreusos.ui.theme.Spacing
+import io.gitlab.voxix.libreusos.ui.theme.tabular
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Cells per row of partial results. */
+private const val CELLS_PER_ROW = 4
+
+/** The tests of one term: cards with points, then the tests whose points are not available (SYSTEM.md section 12). */
 @Composable
-fun TestsScreen(viewModel: TestsViewModel, modifier: Modifier = Modifier) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    // First visit and every return from the background; the model skips fresh live data.
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.ensureLoaded() }
-
-    val locale = LocalConfiguration.current.locales[0]
-    val lang = locale.language
-    val rows = remember(state.sections, state.toggled, lang) {
-        state.sections?.let { buildTestRows(it, state.toggled, lang) }.orEmpty()
+internal fun TestsContent(
+    section: TestTermSection?,
+    skipped: Int,
+    previousTerm: String?,
+    onPreviousTerm: (String) -> Unit,
+    locale: Locale,
+) {
+    val cards = remember(section, locale) { buildTestCards(section, locale.language, locale) }
+    if (cards.isEmpty()) {
+        EmptyTermState(
+            title = stringResource(R.string.tests_empty_title),
+            body = stringResource(R.string.tests_empty_body),
+            previousTerm = previousTerm,
+            onPreviousTerm = onPreviousTerm,
+        )
+        return
     }
-
-    Column(modifier.fillMaxSize()) {
-        if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth()) else Spacer(Modifier.height(4.dp))
-        TestsNote(state, locale)
-        PullToRefreshBox(
-            isRefreshing = state.refreshing,
-            onRefresh = viewModel::refresh,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-        ) {
-            if (state.sections == null && state.error == null) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            }
-            LazyColumn(
-                Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                items(rows, key = { it.key }) { row ->
-                    when (row) {
-                        is TestsRow.Header -> TestsTermHeader(row)
-                        is TestsRow.Course -> CourseTestHeader(row, locale) { viewModel.toggle(row.key) }
-                        is TestsRow.Node -> TestNodeRow(row, locale, lang) { viewModel.toggle(row.key) }
+    val (unavailable, available) = cards.partition { it.unavailable != null }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = Spacing.s24)) {
+        if (available.isNotEmpty()) {
+            ListHeader(
+                stringResource(R.string.tests_section_points),
+                trailing = pluralStringResource(R.plurals.tests_count, available.size, available.size),
+            )
+            GroupedListCard { available.forEach { card -> row { TestCardItem(card, locale) } } }
+        }
+        if (unavailable.isNotEmpty()) {
+            Spacer(Modifier.height(Spacing.s20))
+            ListHeader(stringResource(R.string.tests_section_unavailable))
+            GroupedListCard {
+                unavailable.forEach { card ->
+                    row {
+                        val hidden = card.unavailable == Unavailable.Hidden
+                        GroupedListRow(
+                            title = listOf(card.courseName, card.title).filter { it.isNotBlank() }.joinToString(" · "),
+                            subtitle = stringResource(if (hidden) R.string.tests_reason_hidden else R.string.tests_reason_groups),
+                            icon = if (hidden) R.drawable.ic_visibility_off else R.drawable.ic_lock_clock,
+                        )
                     }
                 }
-                if (state.sections != null && rows.isEmpty()) item(key = "empty") {
-                    TestsCenteredNote(stringResource(R.string.tests_empty))
-                }
-                val error = state.error
-                if (state.sections == null && error != null) item(key = "error") {
-                    TestsCenteredNote(stringResource(R.string.error_prefix, stringResource(error.messageRes)))
-                }
             }
         }
-    }
-}
-
-@Composable
-private fun TestsCenteredNote(text: String) {
-    Text(
-        text,
-        Modifier.fillMaxWidth().padding(vertical = 32.dp),
-        style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.Center,
-    )
-}
-
-/** Says why the data on screen is not live, like the grades do, and how many tests USOS refused. */
-@Composable
-private fun TestsNote(state: TestsUiState, locale: Locale) {
-    if (state.sections == null) return
-    if (state.skipped + state.failedTerms > 0 && !state.loading) TestsNoteText(stringResource(R.string.tests_skipped), isError = false)
-    val error = state.error
-    if (error != null && !state.refreshFailed) {
-        TestsNoteText(stringResource(R.string.error_prefix, stringResource(error.messageRes)), isError = true)
-        return
-    }
-    if (state.liveAtMs != null && !state.refreshFailed) return
-    val zone: ZoneId = state.zone ?: return
-    val fetched = Instant.ofEpochSecond(state.dataAtSec ?: return).atZone(zone)
-    val time = if (fetched.toLocalDate() == LocalDate.now(zone)) {
-        DateTimeFormatter.ofPattern("HH:mm").format(fetched)
-    } else {
-        DateTimeFormatter.ofPattern("d MMM HH:mm", locale).format(fetched)
-    }
-    val failed = state.refreshFailed && !state.loading
-    val text = when {
-        failed -> stringResource(R.string.tests_refresh_failed, time)
-        state.loading -> stringResource(R.string.tests_cached_at, time)
-        else -> stringResource(R.string.tests_offline_cached_at, time)
-    }
-    TestsNoteText(text, isError = failed)
-}
-
-@Composable
-private fun TestsNoteText(text: String, isError: Boolean) {
-    Text(
-        text,
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-        style = MaterialTheme.typography.labelMedium,
-        color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-}
-
-@Composable
-private fun TestsTermHeader(header: TestsRow.Header) {
-    Text(header.title, Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp), style = MaterialTheme.typography.titleLarge)
-}
-
-@Composable
-private fun ExpandIcon(expandable: Boolean, expanded: Boolean) {
-    if (!expandable) {
-        Spacer(Modifier.size(24.dp))
-        return
-    }
-    Icon(
-        if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-        contentDescription = null,
-        Modifier.size(24.dp),
-    )
-}
-
-@Composable
-private fun CourseTestHeader(row: TestsRow.Course, locale: Locale, onToggle: () -> Unit) {
-    val root = row.test.root
-    // The core totals the root; with nothing to show (no points, no maximum) there is no sum.
-    val total = pointsLabel(root.points, root.pointsMax, locale)
-    val toggleLabel = stringResource(if (row.expanded) R.string.tests_collapse else R.string.tests_expand)
-    Surface(
-        Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-    ) {
-        Row(
-            Modifier
-                .then(if (row.expandable) Modifier.clickable(onClickLabel = toggleLabel, onClick = onToggle) else Modifier)
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            ExpandIcon(row.expandable, row.expanded)
-            Column(Modifier.weight(1f)) {
-                Text(row.name.ifBlank { stringResource(R.string.home_unnamed) }, style = MaterialTheme.typography.titleSmall)
-                val details = listOfNotNull(
-                    row.subtitle,
-                    if (root.hidden) stringResource(R.string.tests_hidden) else null,
-                    if (row.test.limitedToGroups) stringResource(R.string.tests_limited) else null,
-                )
-                if (details.isNotEmpty()) {
-                    Text(details.joinToString(" · "), style = MaterialTheme.typography.labelSmall)
-                }
-            }
-            if (total != null) {
-                Text(
-                    stringResource(R.string.tests_points_total, total),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun TestNodeRow(row: TestsRow.Node, locale: Locale, lang: String, onToggle: () -> Unit) {
-    val node: TestNode = row.node
-    val toggleLabel = stringResource(if (row.expanded) R.string.tests_collapse else R.string.tests_expand)
-    Column {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .then(if (row.expandable) Modifier.clickable(onClickLabel = toggleLabel, onClick = onToggle) else Modifier)
-                .padding(start = (row.depth * 20).dp, top = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            ExpandIcon(row.expandable, row.expanded)
-            Column(Modifier.weight(1f)) {
-                Text(
-                    row.name.ifBlank { stringResource(R.string.home_unnamed) },
-                    style = if (node.kind == TestNodeKind.FOLDER) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
-                )
-                val details = listOfNotNull(
-                    if (node.hidden) stringResource(R.string.tests_hidden) else null,
-                    node.grade?.let { g ->
-                        when (g.passes) {
-                            true -> stringResource(R.string.grades_passed)
-                            false -> stringResource(R.string.grades_failed)
-                            null -> null
-                        }
-                    },
-                    node.grade?.description?.pick(lang)?.ifBlank { null },
-                    node.comment?.ifBlank { null },
-                )
-                if (details.isNotEmpty()) {
-                    Text(
-                        details.joinToString(" · "),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            NodeValue(node, locale)
-            Spacer(Modifier.width(4.dp))
-        }
-        HorizontalDivider(Modifier.padding(start = (row.depth * 20).dp), color = MaterialTheme.colorScheme.outlineVariant)
-    }
-}
-
-/** The right-hand side of a node: the grade in a tinted chip for a grade node, else "x / max". */
-@Composable
-private fun NodeValue(node: TestNode, locale: Locale) {
-    val colors = MaterialTheme.colorScheme
-    if (node.kind == TestNodeKind.GRADE) {
-        val grade = node.grade
-        val (chip, onChip) = when (grade?.passes) {
-            true -> colors.primary to colors.onPrimary
-            false -> colors.error to colors.onError
-            null -> colors.surfaceVariant to colors.onSurfaceVariant
-        }
-        Surface(shape = RoundedCornerShape(12.dp), color = chip, contentColor = onChip) {
+        if (skipped > 0) {
             Text(
-                grade?.symbol?.ifBlank { null } ?: stringResource(R.string.grades_no_symbol),
-                Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
+                stringResource(R.string.tests_skipped),
+                Modifier.padding(top = Spacing.s12),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        return
     }
-    val label = pointsLabel(node.points, node.pointsMax, locale) ?: return
-    // A node the lecturer hid is not part of any total: its numbers are dimmed.
-    Text(
-        label,
-        Modifier.alpha(if (node.hidden) 0.5f else 1f),
-        style = MaterialTheme.typography.titleSmall,
-        fontWeight = FontWeight.Bold,
-    )
+}
+
+@Composable
+private fun TestCardItem(card: TestCard, locale: Locale) {
+    val colors = MaterialTheme.colorScheme
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = Spacing.rowPaddingHorizontal, vertical = Spacing.rowPaddingVertical),
+        verticalArrangement = Arrangement.spacedBy(Spacing.s8),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.s8)) {
+            Text(
+                card.courseName,
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            card.changed?.let {
+                Text(
+                    DateTimeFormatter.ofPattern("d MMM", locale).format(it),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                )
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.s12)) {
+            Text(card.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+            card.points?.let { Text(it, style = MaterialTheme.typography.titleLarge.tabular()) }
+        }
+        card.progress?.let { ProgressBar(it) }
+        // shortcut: only the first level of the test tree, until a test detail screen exists.
+        card.cells.chunked(CELLS_PER_ROW).forEach { line ->
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s8)) {
+                line.forEach { cell -> PartialCell(cell, Modifier.weight(1f)) }
+                repeat(CELLS_PER_ROW - line.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+/** The 4 dp bar of points over the maximum. Decorative: the points are said in text next to it. */
+@Composable
+private fun ProgressBar(progress: Float) {
+    Box(
+        Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clearAndSetSemantics { },
+    ) {
+        Box(Modifier.fillMaxWidth(progress).fillMaxHeight().background(MaterialTheme.colorScheme.primary))
+    }
+}
+
+@Composable
+private fun PartialCell(cell: TestCell, modifier: Modifier = Modifier) {
+    val hiddenText = stringResource(R.string.tests_a11y_hidden)
+    Column(
+        modifier
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(Radii.control))
+            .padding(vertical = Spacing.s8, horizontal = Spacing.s4)
+            .semantics(mergeDescendants = true) { if (cell.hidden) contentDescription = "${cell.label}, $hiddenText" },
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            cell.label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+        )
+        if (cell.hidden) {
+            Icon(painterResource(R.drawable.ic_visibility_off), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            Text(cell.value.ifBlank { "–" }, style = MaterialTheme.typography.titleMedium.tabular(), maxLines = 1)
+        }
+    }
 }

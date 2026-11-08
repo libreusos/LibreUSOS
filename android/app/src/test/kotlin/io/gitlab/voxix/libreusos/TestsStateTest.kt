@@ -1,17 +1,18 @@
 package io.gitlab.voxix.libreusos
 
 import io.gitlab.voxix.libreusos.ui.ErrorKind
+import io.gitlab.voxix.libreusos.ui.HomeFailure
+import io.gitlab.voxix.libreusos.ui.HomeMode
+import io.gitlab.voxix.libreusos.ui.TermList
 import io.gitlab.voxix.libreusos.ui.TestTermSection
 import io.gitlab.voxix.libreusos.ui.TestsUiState
+import io.gitlab.voxix.libreusos.ui.asHomeState
+import io.gitlab.voxix.libreusos.ui.homeMode
 import io.gitlab.voxix.libreusos.ui.reduceTestsCache
-import io.gitlab.voxix.libreusos.ui.reduceTestsCacheFailure
 import io.gitlab.voxix.libreusos.ui.reduceTestsFailure
 import io.gitlab.voxix.libreusos.ui.reduceTestsLive
-import io.gitlab.voxix.libreusos.ui.reduceToggle
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.libreusos.core.DataSource
 
@@ -22,93 +23,58 @@ class TestsStateTest {
 
     private val old = listOf(section("OLD"))
     private val fresh = listOf(section("NEW"))
+    private val terms = TermList(emptyList(), "NEW")
+    private val offline = HomeFailure(ErrorKind.NETWORK, offline = true, atMs = 1)
+    private val failure = HomeFailure(ErrorKind.API, offline = false, atMs = 2)
 
     @Test fun cacheThenLive() {
-        val afterCache = reduceTestsCache(TestsUiState(), old, listOf(cached(100), cached(50)))
+        val afterCache = reduceTestsCache(TestsUiState(), old, terms, listOf(cached(100), cached(50)))
         assertEquals(old, afterCache.sections)
         assertNull(afterCache.liveAtMs)
         assertEquals(50L, afterCache.dataAtSec)
-        val afterLive = reduceTestsLive(afterCache, fresh, listOf(live, live), skipped = 2, failedTerms = 0, nowMs = 5_000_000)
+        val afterLive = reduceTestsLive(afterCache, fresh, terms, listOf(live, live), skipped = 2, failedTerms = 0, nowMs = 5_000_000, notLive = offline)
         assertEquals(fresh, afterLive.sections)
         assertEquals(5_000_000L, afterLive.liveAtMs)
         assertEquals(5_000L, afterLive.dataAtSec)
         assertEquals(2, afterLive.skipped)
-        assertFalse(afterLive.refreshFailed)
+        assertNull(afterLive.failure)
     }
 
     @Test fun cacheNeverReplacesDataOnScreen() {
         val shown = TestsUiState(sections = fresh, liveAtMs = 1)
-        assertEquals(shown, reduceTestsCache(shown, old, listOf(cached(1))))
+        assertEquals(shown, reduceTestsCache(shown, old, terms, listOf(cached(1))))
     }
 
     @Test fun aFailedRefreshKeepsTheOldDataAndMarksItNotLive() {
-        val shown = reduceTestsLive(TestsUiState(), old, listOf(live), skipped = 0, failedTerms = 0, nowMs = 1_000)
-        val failed = reduceTestsFailure(shown, ErrorKind.NETWORK)
+        val shown = reduceTestsLive(TestsUiState(), old, terms, listOf(live), 0, 0, 1_000, offline)
+        val failed = reduceTestsFailure(shown, failure)
         assertEquals(old, failed.sections)
         assertNull(failed.liveAtMs)
-        assertTrue(failed.refreshFailed)
-        assertEquals(ErrorKind.NETWORK, failed.error)
-        // With nothing on screen it is a plain error, not a failed refresh.
-        val empty = reduceTestsFailure(TestsUiState(), ErrorKind.NETWORK)
+        assertEquals(failure, failed.failure)
+        // With nothing on screen the sync states show a full-screen failure instead.
+        val empty = reduceTestsFailure(TestsUiState(), offline)
         assertNull(empty.sections)
-        assertFalse(empty.refreshFailed)
+        assertEquals(HomeMode.NoCacheOffline, homeMode(empty.asHomeState(), expired = false))
     }
 
-    @Test fun anOfflineFallbackIsNotLive() {
-        val state = reduceTestsLive(TestsUiState(), old, listOf(live, cached(700)), skipped = 0, failedTerms = 0, nowMs = 9_000_000)
+    @Test fun anOfflineFallbackIsNotLiveAndSaysWhy() {
+        val state = reduceTestsLive(TestsUiState(), old, terms, listOf(live, cached(700)), 0, 0, 9_000_000, offline)
         assertNull(state.liveAtMs)
         assertEquals(700L, state.dataAtSec)
-    }
-
-    @Test fun aCacheReadFailureKeepsTheScreenAndRecordsTheError() {
-        val state = reduceTestsCacheFailure(TestsUiState(), ErrorKind.STORAGE)
-        assertEquals(ErrorKind.STORAGE, state.error)
-        assertNull(state.sections)
-    }
-
-    @Test fun toggleFlipsAndSurvivesACacheAnswer() {
-        val opened = reduceToggle(reduceTestsCache(TestsUiState(), old, listOf(cached(1))), "k")
-        assertEquals(setOf("k"), opened.toggled)
-        // A cache answer never touches the choices; only a live tree prunes them.
-        assertEquals(setOf("k"), reduceTestsCache(opened, fresh, listOf(cached(2))).toggled)
-        assertEquals(emptySet<String>(), reduceToggle(opened, "k").toggled)
+        assertEquals(offline, state.failure)
     }
 
     @Test fun anOfflineFallbackKeepsThePreviousSkippedCount() {
-        val first = reduceTestsLive(TestsUiState(), old, listOf(live), skipped = 3, failedTerms = 0, nowMs = 1)
-        val offline = reduceTestsLive(first, old, listOf(cached(5)), skipped = 0, failedTerms = 0, nowMs = 2)
-        assertEquals(3, offline.skipped)
-        val again = reduceTestsLive(offline, old, listOf(live), skipped = 1, failedTerms = 0, nowMs = 3)
-        assertEquals(1, again.skipped)
+        val first = reduceTestsLive(TestsUiState(), old, terms, listOf(live), 3, 0, 1, offline)
+        val fallback = reduceTestsLive(first, old, terms, listOf(cached(5)), 0, 0, 2, offline)
+        assertEquals(3, fallback.skipped)
+        assertEquals(1, reduceTestsLive(fallback, old, terms, listOf(live), 1, 0, 3, offline).skipped)
     }
 
-    @Test fun failedTermsAreRecordedAndMeanNotFullyLive() {
-        val state = reduceTestsLive(TestsUiState(), old, listOf(live), skipped = 0, failedTerms = 2, nowMs = 1)
-        assertEquals(2, state.failedTerms)
+    @Test fun aTermThatFailedMeansNotFullyLive() {
+        val state = reduceTestsLive(TestsUiState(), old, terms, listOf(live), 0, 2, 1, failure)
         assertNull(state.liveAtMs)
-        assertEquals(0, reduceTestsLive(state, old, listOf(live), skipped = 0, failedTerms = 0, nowMs = 2).failedTerms)
-    }
-
-    @Test fun aLiveResultDropsTogglesOfRowsThatAreGone() {
-        val tests = listOf(
-            org.libreusos.core.CourseTest(
-                "1", org.libreusos.core.LangText("A", null), "NEW", false,
-                org.libreusos.core.TestNode(
-                    "R", org.libreusos.core.TestNodeKind.ROOT, org.libreusos.core.LangText(null, null),
-                    org.libreusos.core.LangText(null, null), null, false, null, null, null, null, null, null,
-                    listOf(
-                        org.libreusos.core.TestNode(
-                            "F", org.libreusos.core.TestNodeKind.FOLDER, org.libreusos.core.LangText("F", null),
-                            org.libreusos.core.LangText(null, null), null, false, null, null, null, null, null, null, emptyList(),
-                        ),
-                    ),
-                ),
-            ),
-        )
-        val sections = listOf(TestTermSection("NEW", null, tests))
-        val kept = "course:NEW:1:R#0/F#0"
-        val state = reduceToggle(reduceToggle(TestsUiState(), kept), "course:OLD:1:R#0")
-        val reloaded = reduceTestsLive(state, sections, listOf(live), skipped = 0, failedTerms = 0, nowMs = 1)
-        assertEquals(setOf(kept), reloaded.toggled)
+        assertEquals(failure, state.failure)
+        assertNull(reduceTestsLive(state, old, terms, listOf(live), 0, 0, 2, failure).failure)
     }
 }

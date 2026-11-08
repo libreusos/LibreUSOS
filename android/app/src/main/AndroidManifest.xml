@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:name=".LibreUsosApp"
@@ -11,6 +12,7 @@
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:enableOnBackInvokedCallback="true"
         android:supportsRtl="true"
         android:theme="@style/Theme.LibreUsos">
 
@@ -45,12 +47,14 @@
                 android:resource="@xml/timetable_widget_info" />
         </receiver>
 
-        <!-- The clock was set: the boundary refresh is timed against it. -->
+        <!-- The clock, zone or date changed: the boundary refresh is timed against them. -->
         <receiver
             android:name=".widget.TimeChangedReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
             </intent-filter>
         </receiver>
 

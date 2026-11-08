@@ -1,15 +1,17 @@
 package io.gitlab.voxix.libreusos.sync
 
 import android.content.Context
-import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.await
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.TimeUnit
 
 /** Everything the app asks WorkManager for. Unique work names make every call idempotent. */
@@ -18,8 +20,10 @@ object SyncScheduler {
     private const val NOW = "sync-now"
     private const val WIDGET_REFRESH = "widget-refresh"
 
-    /** Input of [SyncWorker]: whether a network failure should be retried with backoff. */
-    internal const val KEY_RETRY = "retry"
+    private const val RETRY = "sync-retry"
+
+    /** Input of [SyncWorker]: this run is the planned retry after a failure (it does nothing when a sync worked since). */
+    internal const val KEY_IS_RETRY = "is_retry"
 
     private val online = Constraints.Builder()
         .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -33,19 +37,41 @@ object SyncScheduler {
     fun schedulePeriodic(context: Context, hours: Long, replace: Boolean = false) {
         val request = PeriodicWorkRequestBuilder<SyncWorker>(hours, TimeUnit.HOURS)
             .setConstraints(online)
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.MINUTES)
             .build()
         val policy = if (replace) ExistingPeriodicWorkPolicy.UPDATE else ExistingPeriodicWorkPolicy.KEEP
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(PERIODIC, policy, request)
     }
 
-    /** One sync as soon as the network is there (the app opened). No retry loop: the periodic one covers that. */
-    fun syncNow(context: Context) {
+    /** One sync as soon as the network is there (the app opened). Retries after a failure go through [scheduleRetry]. */
+    fun syncNow(context: Context): androidx.work.Operation {
+        val request = OneTimeWorkRequestBuilder<SyncWorker>().setConstraints(online).build()
+        return WorkManager.getInstance(context).enqueueUniqueWork(NOW, ExistingWorkPolicy.KEEP, request)
+    }
+
+    /**
+     * The retry after a failed sync, in [delayMs] (SYSTEM.md section 11: 15 min, 1 h, 6 h). WorkManager's own
+     * backoff stops at 5 h and cannot show the user the next step, so this is a plain one-off that replaces
+     * any earlier one. It is a separate unique work so a running sync is never replaced.
+     */
+    fun scheduleRetry(context: Context, delayMs: Long) {
         val request = OneTimeWorkRequestBuilder<SyncWorker>()
             .setConstraints(online)
-            .setInputData(Data.Builder().putBoolean(KEY_RETRY, false).build())
+            .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
+            .setInputData(Data.Builder().putBoolean(KEY_IS_RETRY, true).build())
             .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(NOW, ExistingWorkPolicy.KEEP, request)
+        WorkManager.getInstance(context).enqueueUniqueWork(RETRY, ExistingWorkPolicy.REPLACE, request)
+    }
+
+    /**
+     * [syncNow], then suspends until no sync-now work is left unfinished (any outcome), or [timeoutMs] passes
+     * (no network, battery low: the work keeps waiting for its constraints). Used by the first sync after login.
+     */
+    suspend fun syncNowAndWait(context: Context, timeoutMs: Long) {
+        val wm = WorkManager.getInstance(context)
+        syncNow(context).await()
+        withTimeoutOrNull(timeoutMs) {
+            wm.getWorkInfosForUniqueWorkFlow(NOW).first { infos -> infos.all { it.state.isFinished } }
+        }
     }
 
     /** Logout: no more syncing, no widget refresh chain. */
@@ -53,6 +79,7 @@ object SyncScheduler {
         val wm = WorkManager.getInstance(context)
         wm.cancelUniqueWork(PERIODIC)
         wm.cancelUniqueWork(NOW)
+        wm.cancelUniqueWork(RETRY)
         cancelWidgetRefresh(context)
     }
 

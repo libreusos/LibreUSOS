@@ -4,68 +4,70 @@
 
     <string name="loading">Loading…</string>
 
-    <string name="login_title">Log in to USOS</string>
-    <string name="login_base_url">USOS API address</string>
-    <string name="login_consumer_key">Consumer key</string>
-    <string name="login_consumer_secret">Consumer secret</string>
-    <string name="login_key_needed">This build has no consumer key for this server. Enter the key and secret you registered for it.</string>
-    <string name="login_button">Log in</string>
-    <string name="login_in_progress">Waiting for the browser…</string>
-    <string name="login_warnings">Warnings</string>
 
     <string name="home_title">Today</string>
-    <string name="home_logged_in_as">Logged in as %1$s</string>
-    <string name="home_timetable">Today\'s timetable</string>
-    <string name="home_no_classes">No classes today.</string>
-    <string name="home_source_live">Live data</string>
-    <string name="home_source_cached">Cached data, fetched %1$s</string>
-    <string name="home_refresh">Refresh</string>
-    <string name="home_logout">Log out</string>
     <string name="home_unnamed">(unnamed)</string>
 
     <string name="nav_today">Today</string>
     <string name="nav_timetable">Timetable</string>
     <string name="nav_grades">Grades</string>
+    <string name="grades_tab_courses">Courses</string>
     <string name="grades_tab_tests">Tests</string>
+    <string name="grades_term_picker">Term</string>
+    <string name="term_word_ongoing">ongoing</string>
+    <string name="term_word_ended">ended</string>
+    <string name="term_word_summer">summer</string>
+    <string name="term_word_winter">winter</string>
+
+    <string name="grades_fetching_first">Fetching grades…</string>
+    <string name="grades_banner_sync_error">Couldn\'t refresh grades. Your university\'s USOS isn\'t responding.</string>
+    <string name="grades_banner_sync_error_generic">Couldn\'t refresh grades.</string>
+    <string name="grades_banner_expired">The USOS session expired. Grades may be out of date.</string>
+    <string name="grades_offline_body">The first fetch of grades needs a connection. After that LibreUSOS also works offline.</string>
+    <string name="grades_failed_title">Couldn\'t fetch grades</string>
+    <string name="grades_expired_body">Log in again to fetch grades.</string>
+
+    <plurals name="grades_courses_count">
+        <item quantity="one">%d course</item>
+        <item quantity="other">%d courses</item>
+    </plurals>
+    <string name="grades_empty_title">No grades in this term yet</string>
+    <string name="grades_empty_body">You have %1$s. Once lecturers enter grades in USOS they appear here, partial ones too.</string>
+    <string name="grades_empty_body_none">Once lecturers enter grades in USOS they appear here, partial ones too.</string>
+    <string name="grades_previous_term">Previous term · %1$s</string>
+    <string name="grades_ects">%1$s ECTS</string>
+    <string name="grades_session_first">1st sitting</string>
+    <string name="grades_session_retake">2nd sitting</string>
+    <string name="grades_session_later">Sitting %1$d</string>
+    <string name="grades_a11y_grade">Grade %1$s</string>
+    <string name="grades_a11y_no_grade">no grade yet</string>
+    <string name="grade_detail_final">Final grade</string>
+    <string name="grade_detail_final_with">Final grade · %1$s</string>
+    <string name="grade_detail_after_retake">After a retake · issued %1$s</string>
+    <string name="grade_detail_issued">Issued %1$s</string>
+    <string name="grade_detail_retake_note">The first sitting was not passed (%1$s). The final grade is %2$s.</string>
+    <string name="grade_detail_course_level">Course</string>
+    <string name="grade_detail_none">No grades for this course yet.</string>
 
     <string name="timetable_previous_week">Previous week</string>
     <string name="timetable_next_week">Next week</string>
     <string name="timetable_today">Today</string>
     <string name="timetable_empty_day">No classes this day.</string>
-    <string name="timetable_cached_at">Cached at %1$s</string>
-    <string name="timetable_refresh_failed">Couldn\'t refresh, showing data from %1$s</string>
-    <string name="timetable_offline_cached_at">Offline, cached at %1$s</string>
 
-    <string name="grades_empty">No grades yet.</string>
-    <string name="grades_cached_at">Cached at %1$s</string>
-    <string name="grades_offline_cached_at">Offline, cached at %1$s</string>
-    <string name="grades_refresh_failed">Couldn\'t refresh, showing data from %1$s</string>
-    <string name="grades_average">Average %1$s</string>
-    <string name="grades_weighted_average">ECTS-weighted %1$s</string>
-    <string name="grades_ects">%1$s ECTS</string>
-    <string name="grades_session_first">1st sitting</string>
-    <string name="grades_session_retake">Retake</string>
-    <string name="grades_session_later">Sitting %1$d</string>
-    <string name="grades_passed">Passed</string>
-    <string name="grades_failed">Failed</string>
-    <string name="grades_no_symbol">no grade</string>
 
-    <string name="tests_empty">No tests yet.</string>
-    <string name="tests_cached_at">Cached at %1$s</string>
-    <string name="tests_offline_cached_at">Offline, cached at %1$s</string>
-    <string name="tests_refresh_failed">Couldn\'t refresh, showing data from %1$s</string>
+    <string name="tests_empty_title">No tests in this term yet</string>
+    <string name="tests_empty_body">Once lecturers add tests in USOS they appear here.</string>
     <string name="tests_skipped">Some tests couldn\'t be loaded.</string>
-    <string name="tests_points_total">Points %1$s</string>
-    <string name="tests_limited">For selected groups only</string>
-    <string name="tests_hidden">Hidden by the lecturer</string>
-    <string name="tests_expand">Expand</string>
-    <string name="tests_collapse">Collapse</string>
+    <string name="tests_section_points">With points</string>
+    <string name="tests_section_unavailable">Unavailable</string>
+    <plurals name="tests_count">
+        <item quantity="one">%d test</item>
+        <item quantity="other">%d tests</item>
+    </plurals>
+    <string name="tests_reason_hidden">Results hidden by the lecturer</string>
+    <string name="tests_reason_groups">Only available to selected groups</string>
+    <string name="tests_a11y_hidden">hidden</string>
 
-    <string name="activity_room">Room %1$s</string>
-    <string name="activity_group">Group %1$d</string>
-    <string name="activity_overlaps">Overlaps</string>
-    <string name="kind_exam">Exam</string>
-    <string name="kind_meeting">Meeting</string>
 
     <string name="frequency_fortnight">Every other week</string>
     <string name="frequency_fortnight_odd">Every other week (odd)</string>
@@ -77,7 +79,6 @@
     <string name="frequency_once">One-off</string>
     <string name="frequency_irregular">Irregular</string>
 
-    <string name="error_prefix">Error: %1$s</string>
     <string name="error_network">Cannot reach the server. Check your connection and try again.</string>
     <string name="error_unauthorized">Authorization was denied or is no longer valid.</string>
     <string name="error_api">The server rejected the request.</string>
@@ -90,19 +91,203 @@
     <string name="error_session_expired">Your session has expired. Log in again.</string>
     <string name="error_unknown">Something went wrong.</string>
 
-    <string name="widget_name">Today and next</string>
-    <string name="widget_description">Your remaining classes today, or the next day with classes.</string>
+    <string name="widget_name">Timetable</string>
+    <string name="widget_description">Current and next classes, the rest of the day</string>
     <string name="widget_today">Today</string>
     <string name="widget_tomorrow">Tomorrow</string>
-    <string name="widget_cached">cached %1$s</string>
-    <string name="widget_more">+%1$d more</string>
+    <string name="widget_tomorrow_header">Tomorrow, %1$s</string>
+    <string name="widget_state_now">Now</string>
+    <string name="widget_state_next">Next</string>
+    <string name="widget_state_first">First</string>
+    <string name="widget_row_now">now</string>
+    <string name="widget_row_next">next</string>
+    <string name="widget_row_first">first</string>
+    <string name="widget_until">until %1$s</string>
+    <string name="widget_then">then %1$s %2$s</string>
+    <string name="widget_position">%1$d of %2$d</string>
+    <string name="widget_more">+%1$d later</string>
+    <string name="widget_over">No more classes today</string>
+    <string name="widget_weekend">Weekend</string>
     <string name="widget_empty">No classes in the next few days.</string>
-    <string name="widget_logged_out">Open LibreUSOS to log in and see your timetable.</string>
-    <string name="widget_no_data">No timetable saved yet. Tap to open LibreUSOS and load it.</string>
+    <string name="widget_sign_in_title">Sign in to USOS</string>
+    <string name="widget_sign_in_body">Your classes for today will show up here.</string>
+    <string name="widget_sign_in">Sign in</string>
+    <string name="widget_refresh">Refresh</string>
     <string name="widget_preview_class1">Algorithms</string>
     <string name="widget_preview_class2">Databases</string>
     <string name="widget_preview_class3">Calculus</string>
     <string name="widget_preview_room1" translatable="false">201</string>
     <string name="widget_preview_room2" translatable="false">315</string>
     <string name="widget_preview_room3" translatable="false">12</string>
+
+    <string-array name="week_motif_days">
+        <item>MO</item>
+        <item>TU</item>
+        <item>WE</item>
+        <item>TH</item>
+        <item>FR</item>
+    </string-array>
+    <string name="week_motif_legend_class">classes</string>
+    <string name="week_motif_legend_free">free</string>
+    <string name="week_motif_legend_today">today</string>
+
+    <string name="nav_more">More</string>
+    <string name="action_back">Back</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_ok">OK</string>
+
+    <string name="more_group_studies">Studies</string>
+    <string name="more_group_affairs">Admin</string>
+    <string name="more_group_communication">Communication</string>
+    <string name="more_deadlines">Deadlines</string>
+    <string name="more_registrations">Registrations</string>
+    <string name="more_surveys">Surveys</string>
+    <string name="more_search_plan">Find a timetable</string>
+    <string name="more_payments">Payments</string>
+    <string name="more_mlegitymacja">mLegitymacja</string>
+    <string name="more_news">News</string>
+    <string name="more_messages">Messages</string>
+    <string name="more_settings">Settings</string>
+    <string name="more_soon">soon</string>
+
+    <string name="account_unknown_name">Your account</string>
+    <string name="account_switch">Change university or account</string>
+    <string name="account_switch_hint">One account at a time; the other\'s data is removed</string>
+    <string name="account_logout">Log out</string>
+    <string name="account_logout_hint">Removes data from this device</string>
+    <string name="confirm_logout_title">Log out?</string>
+    <string name="confirm_logout_body">Data saved on this device, including the cached timetable and grades, will be deleted.</string>
+    <string name="confirm_switch_title">Change university or account?</string>
+    <string name="confirm_switch_body">You will be logged out and the data on this device deleted. Then pick a university and sign in again.</string>
+    <string name="confirm_switch_action">Log out and change</string>
+    <string name="logout_failed_title">Could not log out</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_dynamic_color">Wallpaper colours</string>
+    <string name="settings_dynamic_color_hint">Material You · Android 12+</string>
+    <string name="settings_section_sync">Sync</string>
+    <string name="settings_sync_interval">Background sync</string>
+    <string name="settings_sync_interval_title">How often to sync</string>
+    <plurals name="settings_every_hours">
+        <item quantity="one">Every hour</item>
+        <item quantity="other">Every %d hours</item>
+    </plurals>
+    <string name="settings_section_account">Account</string>
+    <string name="settings_section_about">About</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_licences">Licences</string>
+    <string name="settings_licences_hint">Geist, Material Symbols</string>
+
+    <string name="today_refresh">Refresh</string>
+    <string name="today_fetching_first">Fetching the timetable…</string>
+    <string name="today_fetching">Syncing…</string>
+    <string name="today_status_synced">Synced %1$s</string>
+    <string name="today_status_data_from_failed">Data from %1$s · attempt at %2$s failed</string>
+    <string name="today_status_last_sync">Last sync %1$s</string>
+    <string name="today_status_offline_no_data">Offline · no data yet</string>
+    <string name="today_status_first_failed">First sync failed</string>
+    <string name="today_stamp_today">today, %1$s</string>
+    <string name="today_stamp_yesterday">yesterday, %1$s</string>
+
+    <string name="today_banner_offline">No connection. Data from %1$s.</string>
+    <string name="today_banner_sync_error">Could not refresh the timetable. Your university\'s USOS is not responding.</string>
+    <string name="today_banner_sync_error_generic">Could not refresh the timetable.</string>
+    <string name="today_banner_retry_in">We\'ll try again in %1$s.</string>
+    <string name="today_banner_expired">Your USOS session has expired. The timetable may be out of date.</string>
+    <string name="today_action_retry">Try again</string>
+    <string name="today_action_relogin">Sign in again</string>
+    <string name="today_action_details">Details</string>
+
+    <string name="today_span_min">%1$d min</string>
+    <string name="today_span_h">%1$d h</string>
+    <string name="today_span_h_min">%1$d h %2$d min</string>
+    <string name="today_in">in %1$s</string>
+    <string name="today_remaining">%1$s left</string>
+    <string name="today_gap">Free period · %1$s</string>
+
+    <string name="today_badge_clash">Clash</string>
+    <string name="today_badge_now">Now</string>
+    <string name="today_next_label">Next:</string>
+    <string name="today_plan_title">Today\'s plan</string>
+    <plurals name="today_classes_count">
+        <item quantity="one">%d class</item>
+        <item quantity="other">%d classes</item>
+    </plurals>
+    <string name="today_row_current">in progress · details above</string>
+    <string name="today_row_upcoming">next · details above</string>
+    <string name="today_room">rm %1$s</string>
+    <string name="today_group">gr. %1$d</string>
+
+    <string name="today_empty_title">No classes today</string>
+    <string name="today_empty_body">Your timetable has nothing for today.</string>
+    <string name="today_empty_none_soon">Your timetable has no classes today or in the next week.</string>
+    <string name="today_next_classes">Next classes</string>
+    <string name="today_tomorrow">tomorrow, %1$s</string>
+    <plurals name="today_more_classes">
+        <item quantity="one">%d more class</item>
+        <item quantity="other">%d more classes</item>
+    </plurals>
+    <string name="today_whole_week">Whole week</string>
+
+    <string name="today_offline_title">No internet</string>
+    <string name="today_offline_body">The first download of the timetable needs a connection. After that LibreUSOS works offline too.</string>
+    <string name="today_server_title">Your university\'s USOS is not responding</string>
+    <string name="today_server_body">This is usually brief. We\'ll try again in %1$s; you can also try now.</string>
+    <string name="today_server_body_now">This is usually brief. You can try now.</string>
+    <string name="today_failed_title">Could not fetch the timetable</string>
+    <string name="today_failed_body">Check your connection and try again.</string>
+    <string name="today_expired_title">Your USOS session has expired</string>
+    <string name="today_expired_body">Sign in again to fetch the timetable.</string>
+
+    <string name="today_details_title">Error details</string>
+    <string name="today_details_hint">Useful when you report a problem to your university or to the LibreUSOS repository.</string>
+    <string name="today_details_copy">Copy</string>
+    <string name="today_details_app">LibreUSOS %1$s · Android %2$s</string>
+
+    <!-- Plan and class detail -->
+    <string name="plan_eyebrow_week">%1$s · week %2$d</string>
+    <string name="plan_view_day">Day</string>
+    <string name="plan_view_week">Week</string>
+    <string-array name="plan_day_abbr">
+        <item>MO</item>
+        <item>TU</item>
+        <item>WE</item>
+        <item>TH</item>
+        <item>FR</item>
+        <item>SA</item>
+        <item>SU</item>
+    </string-array>
+    <string name="plan_clash_lead">Clash %1$s–%2$s.</string>
+    <string name="plan_clash_pair">%1$s and %2$s overlap by %3$s.</string>
+    <plurals name="plan_clash_many">
+        <item quantity="one">%d class overlaps.</item>
+        <item quantity="other">%d classes overlap.</item>
+    </plurals>
+    <string name="plan_clash_hint">Tap a clash to see the classes side by side.</string>
+    <plurals name="plan_clash_sheet_title">
+        <item quantity="one">%d class at the same time</item>
+        <item quantity="other">%d classes at the same time</item>
+    </plurals>
+    <string name="plan_clash_sheet_note">LibreUSOS shows the timetable from USOS and does not choose for you. If it is a mistake in the timetable, report it to your dean\'s office.</string>
+    <string name="plan_legend_lecture">lecture</string>
+    <string name="plan_legend_lab">laboratory</string>
+    <string name="plan_legend_other">class, project, seminar, language</string>
+    <string name="plan_a11y_time">%1$s to %2$s</string>
+    <string name="plan_a11y_room">room %1$s</string>
+    <string name="plan_a11y_building">building %1$s</string>
+    <string name="plan_a11y_clash">clash</string>
+
+    <string name="detail_room">Room %1$s</string>
+    <string name="detail_building">building %1$s</string>
+    <string name="detail_group">Group %1$d</string>
+    <string name="detail_every_week">Every week</string>
+    <string name="detail_group_meetings">Meetings of this group</string>
+    <string name="detail_position">Meeting %1$d of %2$d in the timetable</string>
+    <string name="detail_next">next %1$s</string>
+    <string name="detail_next_meetings">Next meetings</string>
 </resources>

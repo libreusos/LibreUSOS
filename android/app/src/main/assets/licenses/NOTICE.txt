@@ -1,0 +1,9 @@
+LibreUSOS bundles the following third-party assets.
+
+Geist and Geist Mono (fonts)
+  Copyright 2024 The Geist Project Authors (https://github.com/vercel/geist-font.git)
+  SIL Open Font License 1.1: Geist-OFL-1.1.txt
+
+Material Symbols Outlined (icons, converted to Android vector drawables)
+  Copyright Google LLC (https://github.com/google/material-design-icons)
+  Apache License 2.0: MaterialSymbols-Apache-2.0.txt

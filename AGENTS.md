@@ -1,6 +1,6 @@
 # Guide for coding agents
 
-LibreUSOS: unofficial USOS client. Rust core, Android app (Kotlin, Compose), `usos` CLI. Depth lives in the wiki: https://gitlab.com/voxix/LibreUSOS/-/wikis/home
+LibreUSOS: unofficial USOS client. Rust core, Android app (Kotlin, Compose), `usos` CLI. Depth lives in the wiki: https://gitlab.com/libreusos/LibreUSOS/-/wikis/home
 
 ## Layout
 

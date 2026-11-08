@@ -12,49 +12,60 @@ import org.libreusos.core.installationTimeZone
 import java.time.LocalDateTime
 import java.time.ZoneId
 
-/** Everything the widget draws, read once per update. */
-sealed interface WidgetContent {
-    /** No token, or no consumer key: the cache is gone or unusable. */
-    data object LoggedOut : WidgetContent
-
-    /** Logged in, but nothing cached yet (or the cache could not be read). */
-    data object NoData : WidgetContent
-
-    /** [plan] is null when the cache holds no class today or later in the range. */
-    data class Timetable(val plan: DayPlan?, val fetchedAtSec: Long?) : WidgetContent
-}
-
-data class WidgetSnapshot(val content: WidgetContent, val zone: ZoneId, val now: LocalDateTime)
+/**
+ * Everything the widget draws, read once per update. [day] is null unless [mode] is Content.
+ * [syncedAtMs] is the newest sign that the data is current: the last successful sync, or the cache's own stamp.
+ */
+data class WidgetSnapshot(
+    val mode: WidgetMode,
+    val day: WidgetDay?,
+    val zone: ZoneId,
+    val now: LocalDateTime,
+    val syncedAtMs: Long?,
+    val expired: Boolean,
+    /** Follows the app's "wallpaper colours" setting. */
+    val dynamicColor: Boolean,
+)
 
 /** The cache range of an update: today and the six days after it. */
 private const val RANGE_DAYS = 6L
 
 /**
  * One `cachedTimetable` read from the shared client (no network, no second store). Safe on any thread.
- * The token is checked first: a cache left by a previous account must never show. Any failure gives NoData.
+ * The token is checked first: a cache left by a previous account must never show. Any failure gives Loading.
  */
 suspend fun loadWidgetSnapshot(context: Context): WidgetSnapshot = withContext(Dispatchers.IO) {
     var zone = ZoneId.systemDefault()
     var now = LocalDateTime.now(zone)
+    var dynamic = true
     try {
         val container = (context.applicationContext as LibreUsosApp).container
+        dynamic = container.settings.appearance.value.dynamicColor
         zone = ZoneId.of(installationTimeZone())
         now = LocalDateTime.now(zone)
+        val record = container.syncStore.record.value
         val client = container.client(container.settings.baseUrl)
-        if (client == null || !client.hasToken()) return@withContext WidgetSnapshot(WidgetContent.LoggedOut, zone, now)
-        val content = try {
-            val today = now.toLocalDate()
-            val cached = client.cachedTimetable(today.toString(), today.plusDays(RANGE_DAYS).toString())
-            val fetchedAt = (cached.source as? DataSource.Cached)?.fetchedAt
-            WidgetContent.Timetable(pickDay(timed(cached.activities), now), fetchedAt)
-        } catch (_: UsosException.NotCached) {
-            WidgetContent.NoData
+        val hasToken = client?.hasToken() == true
+        var day: WidgetDay? = null
+        var cachedAtMs: Long? = null
+        if (client != null && hasToken) {
+            try {
+                val today = now.toLocalDate()
+                val cached = client.cachedTimetable(today.toString(), today.plusDays(RANGE_DAYS).toString())
+                cachedAtMs = (cached.source as? DataSource.Cached)?.fetchedAt?.let { it * 1000 }
+                day = widgetDay(timed(cached.activities), now)
+            } catch (_: UsosException.NotCached) {
+            }
         }
-        WidgetSnapshot(content, zone, now)
+        val mode = widgetMode(hasToken, day != null, record.expired)
+        WidgetSnapshot(
+            mode, day.takeIf { mode == WidgetMode.Content }, zone, now,
+            listOfNotNull(record.lastSuccessMs, cachedAtMs).maxOrNull(), record.expired, dynamic,
+        )
     } catch (e: CancellationException) {
         throw e
     } catch (t: Throwable) {
         logFailure(t)
-        WidgetSnapshot(WidgetContent.NoData, zone, now)
+        WidgetSnapshot(WidgetMode.Loading, null, zone, now, null, false, dynamic)
     }
 }

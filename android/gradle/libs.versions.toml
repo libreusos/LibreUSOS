@@ -25,7 +25,6 @@ androidx-compose-ui = { module = "androidx.compose.ui:ui" }
 androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
-androidx-compose-material-icons-core = { module = "androidx.compose.material:material-icons-core" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 # Used as `net.java.dev.jna:jna:<version>@aar` (see app/build.gradle.kts).
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }

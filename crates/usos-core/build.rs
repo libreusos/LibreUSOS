@@ -72,8 +72,16 @@ fn main() {
                 .find(|v| !v.is_empty())
         };
         Some((
-            pick(&["USOS_CONSUMER_KEY", "USOS_POLSL_CONSUMER_KEY", "CONSUMER_KEY"])?,
-            pick(&["USOS_CONSUMER_SECRET", "USOS_POLSL_CONSUMER_SECRET", "CONSUMER_SECRET"])?,
+            pick(&[
+                "USOS_CONSUMER_KEY",
+                "USOS_POLSL_CONSUMER_KEY",
+                "CONSUMER_KEY",
+            ])?,
+            pick(&[
+                "USOS_CONSUMER_SECRET",
+                "USOS_POLSL_CONSUMER_SECRET",
+                "CONSUMER_SECRET",
+            ])?,
         ))
     };
 

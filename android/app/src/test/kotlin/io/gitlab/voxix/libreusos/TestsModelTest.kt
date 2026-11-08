@@ -1,17 +1,14 @@
 package io.gitlab.voxix.libreusos
 
 import io.gitlab.voxix.libreusos.ui.TestTermSection
-import io.gitlab.voxix.libreusos.ui.TestsRow
-import io.gitlab.voxix.libreusos.ui.buildTestRows
+import io.gitlab.voxix.libreusos.ui.Unavailable
+import io.gitlab.voxix.libreusos.ui.buildTestCards
 import io.gitlab.voxix.libreusos.ui.buildTestSections
 import io.gitlab.voxix.libreusos.ui.formatPoints
-import io.gitlab.voxix.libreusos.ui.isExpanded
 import io.gitlab.voxix.libreusos.ui.liveTermIds
 import io.gitlab.voxix.libreusos.ui.mergeTermTests
-import io.gitlab.voxix.libreusos.ui.pruneToggled
-import io.gitlab.voxix.libreusos.ui.testKeys
+import io.gitlab.voxix.libreusos.ui.progressOf
 import io.gitlab.voxix.libreusos.ui.pointsLabel
-import io.gitlab.voxix.libreusos.ui.toggleKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -24,6 +21,7 @@ import org.libreusos.core.Term
 import org.libreusos.core.TermTests
 import org.libreusos.core.TestNode
 import org.libreusos.core.TestNodeKind
+import java.time.LocalDate
 import java.util.Locale
 
 class TestsModelTest {
@@ -44,20 +42,22 @@ class TestsModelTest {
         points: Double? = null,
         max: Double? = null,
         hidden: Boolean = false,
+        visible: Boolean? = null,
+        changed: String? = null,
         vararg children: TestNode,
     ) = TestNode(
         id = id,
         kind = kind,
         name = LangText(name, null),
         description = LangText(null, null),
-        resultsVisible = null,
+        resultsVisible = visible,
         hidden = hidden,
         points = points,
         pointsMax = max,
         pointsMin = null,
         grade = null,
         comment = null,
-        lastChanged = null,
+        lastChanged = changed,
         children = children.toList(),
     )
 
@@ -100,77 +100,80 @@ class TestsModelTest {
         assertNull(sections[2].term)
     }
 
-    @Test fun coursesSortWithThePolishCollator() {
-        val tests = listOf(test("1", "Zeszyt"), test("2", "Łacina"), test("3", "Logika"), test("4", "Algebra"))
-        val rows = buildTestRows(listOf(TestTermSection("T", null, tests)), emptySet(), "pl")
-        val names = rows.filterIsInstance<TestsRow.Course>().map { it.name }
+    private fun cards(vararg tests: CourseTest, lang: String = "en") =
+        buildTestCards(TestTermSection("T", null, tests.toList()), lang, Locale.ENGLISH)
+
+    @Test fun cardsSortWithThePolishCollator() {
+        val names = cards(test("1", "Zeszyt"), test("2", "Łacina"), test("3", "Logika"), test("4", "Algebra"), lang = "pl").map { it.courseName }
         // A plain code-point compare would put the Ł after Z.
         assertEquals(listOf("Algebra", "Logika", "Łacina", "Zeszyt"), names)
-        assertEquals("T", (rows.first() as TestsRow.Header).title.removePrefix("Semestr "))
+        assertTrue(buildTestCards(null, "pl", Locale.ENGLISH).isEmpty())
     }
 
-    private val tree = test(
-        "1",
-        "Analiza",
-        "T",
-        node("F1", TestNodeKind.FOLDER, points = 4.0, max = 10.0, children = arrayOf(
-            node("K1", TestNodeKind.TASK, points = 4.0, max = 10.0),
-            node("F2", TestNodeKind.FOLDER, children = arrayOf(node("K2", TestNodeKind.TASK, max = 5.0))),
-        )),
-        node("G1", TestNodeKind.GRADE, name = null),
-    )
-
-    private fun rowsOf(toggled: Set<String>) = buildTestRows(listOf(TestTermSection("T", null, listOf(tree))), toggled, "en")
-
-    @Test fun aCourseOpensByDefaultAndFoldersStartClosed() {
-        val rows = rowsOf(emptySet())
-        assertEquals(listOf("term:T", "course:T:1:R1#0", "course:T:1:R1#0/F1#0", "course:T:1:R1#0/G1#1"), rows.map { it.key })
-        val course = rows[1] as TestsRow.Course
-        assertTrue(course.expanded)
-        assertTrue(course.expandable)
-        val folder = rows[2] as TestsRow.Node
-        assertTrue(folder.expandable)
-        assertFalse(folder.expanded)
-        assertEquals(0, folder.depth)
-        val leaf = rows[3] as TestsRow.Node
-        assertFalse(leaf.expandable)
-        assertEquals("", leaf.name)
+    @Test fun equalCourseNamesFallBackToTheRootIdThenTheirOrder() {
+        val ids = listOf(test("1", "Same", rootId = "B"), test("2", "Same", rootId = "A"), test("3", "Same", rootId = "A"))
+        assertEquals(listOf("2", "3", "1"), cards(*ids.toTypedArray()).map { it.key.split(":")[1] })
     }
 
-    @Test fun openingFoldersFlattensTheTreeWithDepths() {
-        val f1 = "course:T:1:R1#0/F1#0"
-        val rows = rowsOf(setOf(f1, "$f1/F2#1"))
-        val nodes = rows.filterIsInstance<TestsRow.Node>()
-        assertEquals(listOf("F1", "K1", "F2", "K2", "G1"), nodes.map { it.node.id })
-        assertEquals(listOf(0, 1, 1, 2, 0), nodes.map { it.depth })
-        assertTrue(nodes[0].expanded)
-        assertTrue(nodes[2].expanded)
-        // Nodes under a closed parent stay hidden even when they were toggled themselves.
-        val inner = rowsOf(setOf("$f1/F2#1")).filterIsInstance<TestsRow.Node>()
-        assertEquals(listOf("F1", "G1"), inner.map { it.node.id })
+    @Test fun aCardKeepsTheCoreTotalsAndTheFirstLevelCells() {
+        val card = cards(
+            test(
+                "1", "Analiza", "T",
+                node("F1", TestNodeKind.FOLDER, name = "Part", points = 4.0, max = 10.0, changed = "2026-06-01T10:00:00"),
+                node("G1", TestNodeKind.GRADE, name = "Grade"),
+            ),
+        ).single()
+        assertEquals("7.5 / 20", card.points)
+        assertEquals(0.375f, card.progress!!, 0.0001f)
+        assertEquals(listOf("Part", "Grade"), card.cells.map { it.label })
+        assertEquals(listOf("4 / 10", ""), card.cells.map { it.value })
+        assertNull(card.unavailable)
+        // Totals are the core's: nothing is summed from the cells.
+        assertEquals("Analiza", card.courseName)
     }
 
-    @Test fun closingACourseHidesItsTree() {
-        val rows = rowsOf(setOf("course:T:1:R1#0"))
-        assertEquals(2, rows.size)
-        assertFalse((rows[1] as TestsRow.Course).expanded)
+    @Test fun aGradeCellShowsItsSymbol() {
+        val grade = node("G", TestNodeKind.GRADE, name = "Final").copy(grade = org.libreusos.core.NodeGrade(symbol = "4,5", description = LangText(null, null), passes = true, value = 4.5))
+        val card = cards(test("1", "A", "T", grade)).single()
+        assertEquals("4,5", card.cells.single().value)
     }
 
-    @Test fun aCourseWithoutNodesIsNotExpandable() {
-        val rows = buildTestRows(listOf(TestTermSection("T", null, listOf(test("1", "x")))), emptySet(), "en")
-        val course = rows[1] as TestsRow.Course
-        assertFalse(course.expandable)
-        assertFalse(course.expanded)
-        assertEquals(2, rows.size)
+    @Test fun hiddenAndGroupRestrictedTestsAreUnavailable() {
+        val hidden = cards(test("1", "A", "T", node("H", TestNodeKind.TASK, points = 1.0, max = 2.0), rootHidden = true)).single()
+        assertEquals(Unavailable.Hidden, hidden.unavailable)
+        assertTrue(hidden.cells.isEmpty())
+        val groups = buildTestCards(
+            TestTermSection("T", null, listOf(test("2", "B", limited = true).let { it.copy(root = it.root.copy(points = null)) })),
+            "en",
+            Locale.ENGLISH,
+        ).single()
+        assertEquals(Unavailable.Groups, groups.unavailable)
+        val limitedWithPoints = cards(test("3", "C", limited = true)).single()
+        assertNull(limitedWithPoints.unavailable)
+        val notVisible = cards(test("4", "D").let { it.copy(root = it.root.copy(resultsVisible = false)) }).single()
+        assertEquals(Unavailable.Hidden, notVisible.unavailable)
     }
 
-    @Test fun toggleFlipsAgainstTheDefault() {
-        assertTrue(isExpanded("k", true, emptySet()))
-        assertFalse(isExpanded("k", true, setOf("k")))
-        assertFalse(isExpanded("k", false, emptySet()))
-        assertTrue(isExpanded("k", false, setOf("k")))
-        assertEquals(setOf("a", "k"), toggleKey(setOf("a"), "k"))
-        assertEquals(setOf("a"), toggleKey(setOf("a", "k"), "k"))
+    @Test fun aHiddenCellKeepsItsLabelButNoValue() {
+        val card = cards(test("1", "A", "T", node("H", TestNodeKind.TASK, name = "Quiz", points = 1.0, max = 2.0, hidden = true))).single()
+        assertTrue(card.cells.single().hidden)
+        assertEquals("", card.cells.single().value)
+    }
+
+    @Test fun theChangedDateComesFromTheRootTimestamp() {
+        val t = test("1", "A")
+        assertEquals(LocalDate.of(2026, 6, 1), cards(t.copy(root = t.root.copy(lastChanged = "2026-06-01T10:00:00"))).single().changed)
+        assertNull(cards(t.copy(root = t.root.copy(lastChanged = "oops"))).single().changed)
+    }
+
+    @Test fun progressStaysWithinZeroAndOne() {
+        assertEquals(0.5f, progressOf(5.0, 10.0)!!, 0.0001f)
+        assertEquals(1f, progressOf(12.0, 10.0)!!, 0.0001f)
+        assertEquals(0f, progressOf(-1.0, 10.0)!!, 0.0001f)
+        assertNull(progressOf(null, 10.0))
+        assertNull(progressOf(5.0, null))
+        assertNull(progressOf(5.0, 0.0))
+        assertNull(progressOf(Double.NaN, 10.0))
     }
 
     @Test fun pointsAreShownAsGivenByTheCore() {
@@ -183,10 +186,6 @@ class TestsModelTest {
         assertEquals("4", pointsLabel(4.0, null, en))
         assertEquals("– / 5", pointsLabel(null, 5.0, en))
         assertNull(pointsLabel(null, null, en))
-        // The course row keeps the core's root totals; nothing is summed from the children.
-        val course = rowsOf(emptySet())[1] as TestsRow.Course
-        assertEquals(7.5, course.test.root.points)
-        assertEquals(20.0, course.test.root.pointsMax)
     }
 
     @Test fun pointsRoundHalfUpAndNeverShowNegativeZero() {
@@ -199,52 +198,6 @@ class TestsModelTest {
         assertEquals("-1.5", formatPoints(-1.5, en))
         assertEquals("\u2013", formatPoints(Double.NaN, en))
         assertEquals("0 / 5", pointsLabel(-0.0, 5.0, en))
-    }
-
-    @Test fun equalCourseNamesFallBackToTheRootIdThenTheirOrder() {
-        val tests = listOf(
-            test("1", "Same", rootId = "B"),
-            test("2", "Same", rootId = "A"),
-            test("3", "Same", rootId = "A"),
-        )
-        val rows = buildTestRows(listOf(TestTermSection("T", null, tests)), emptySet(), "en").filterIsInstance<TestsRow.Course>()
-        assertEquals(listOf("2", "3", "1"), rows.map { it.test.courseId })
-    }
-
-    @Test fun nodesWithoutANameGetAnEmptyName() {
-        val rows = buildTestRows(
-            listOf(TestTermSection("T", null, listOf(test("1", null, "T", node("X", TestNodeKind.TASK, name = null))))),
-            emptySet(),
-            "en",
-        )
-        assertEquals("", (rows[1] as TestsRow.Course).name)
-        assertEquals("", (rows[2] as TestsRow.Node).name)
-    }
-
-    @Test fun hiddenAndLimitedFlagsReachTheRows() {
-        val tests = listOf(
-            test("1", "A", "T", node("H", TestNodeKind.TASK, hidden = true, points = 1.0, max = 2.0), rootHidden = true, limited = true),
-        )
-        val rows = buildTestRows(listOf(TestTermSection("T", null, tests)), emptySet(), "en")
-        val course = rows[1] as TestsRow.Course
-        assertTrue(course.test.root.hidden)
-        assertTrue(course.test.limitedToGroups)
-        assertTrue((rows[2] as TestsRow.Node).node.hidden)
-    }
-
-    @Test fun duplicateIdsStillGiveUniqueKeys() {
-        val dup = test("1", "A", "T", node("N", TestNodeKind.TASK), node("N", TestNodeKind.TASK), rootId = "R")
-        val sections = listOf(TestTermSection("T", null, listOf(dup, dup)))
-        val rows = buildTestRows(sections, emptySet(), "en")
-        assertEquals(rows.size, rows.map { it.key }.toSet().size)
-        assertEquals(6, testKeys(sections).size)
-    }
-
-    @Test fun pruningKeepsOnlyKeysOfTheCurrentTree() {
-        val sections = listOf(TestTermSection("T", null, listOf(tree)))
-        val live = "course:T:1:R1#0/F1#0"
-        assertEquals(setOf(live), pruneToggled(setOf(live, "course:T:1:R1#0/GONE#0", "course:X:9:R#0"), sections))
-        assertEquals(emptySet<String>(), pruneToggled(emptySet(), sections))
     }
 
     @Test fun onlyTheTwoNewestTermsAndUncachedOnesAreFetchedLive() {

@@ -2,10 +2,16 @@ package io.gitlab.voxix.libreusos
 
 import io.gitlab.voxix.libreusos.ui.ErrorKind
 import io.gitlab.voxix.libreusos.ui.GradesUiState
+import io.gitlab.voxix.libreusos.ui.HomeBanner
+import io.gitlab.voxix.libreusos.ui.HomeFailure
+import io.gitlab.voxix.libreusos.ui.HomeMode
+import io.gitlab.voxix.libreusos.ui.TermList
 import io.gitlab.voxix.libreusos.ui.TermSection
+import io.gitlab.voxix.libreusos.ui.asHomeState
+import io.gitlab.voxix.libreusos.ui.homeBanner
+import io.gitlab.voxix.libreusos.ui.homeMode
 import io.gitlab.voxix.libreusos.ui.isLive
 import io.gitlab.voxix.libreusos.ui.reduceCache
-import io.gitlab.voxix.libreusos.ui.reduceCacheFailure
 import io.gitlab.voxix.libreusos.ui.reduceFailure
 import io.gitlab.voxix.libreusos.ui.reduceLive
 import org.junit.Assert.assertEquals
@@ -24,55 +30,64 @@ class GradesStateTest {
 
     private val old = listOf(section("OLD"))
     private val fresh = listOf(section("NEW"))
+    private val terms = TermList(emptyList(), "NEW")
+    private val offline = HomeFailure(ErrorKind.NETWORK, offline = true, atMs = 1)
+    private val failure = HomeFailure(ErrorKind.API, offline = false, atMs = 2)
 
     @Test fun cacheThenLive() {
-        val afterCache = reduceCache(GradesUiState(), old, listOf(cached(100), cached(50)))
+        val afterCache = reduceCache(GradesUiState(), old, terms, listOf(cached(100), cached(50)))
         assertEquals(old, afterCache.sections)
         assertNull(afterCache.liveAtMs)
         assertEquals(50L, afterCache.dataAtSec)
-        val afterLive = reduceLive(afterCache, fresh, listOf(live, live), nowMs = 5_000_000)
+        val afterLive = reduceLive(afterCache, fresh, terms, listOf(live, live), 5_000_000, offline)
         assertEquals(fresh, afterLive.sections)
         assertEquals(5_000_000L, afterLive.liveAtMs)
         assertEquals(5_000L, afterLive.dataAtSec)
-        assertFalse(afterLive.refreshFailed)
+        assertNull(afterLive.failure)
     }
 
     @Test fun cacheNeverReplacesDataOnScreen() {
         val shown = GradesUiState(sections = fresh, liveAtMs = 1)
-        assertEquals(shown, reduceCache(shown, old, listOf(cached(1))))
+        assertEquals(shown, reduceCache(shown, old, terms, listOf(cached(1))))
     }
 
     @Test fun aFailedRefreshKeepsTheOldDataAndMarksItNotLive() {
-        val shown = reduceLive(GradesUiState(), old, listOf(live), nowMs = 1_000)
-        val failed = reduceFailure(shown, ErrorKind.NETWORK)
+        val shown = reduceLive(GradesUiState(), old, terms, listOf(live), 1_000, offline)
+        val failed = reduceFailure(shown, failure)
         assertEquals(old, failed.sections)
         assertNull(failed.liveAtMs)
-        assertTrue(failed.refreshFailed)
-        assertEquals(ErrorKind.NETWORK, failed.error)
-        // With nothing on screen it is a plain error, not a failed refresh.
-        val empty = reduceFailure(GradesUiState(), ErrorKind.NETWORK)
-        assertNull(empty.sections)
-        assertFalse(empty.refreshFailed)
+        assertEquals(failure, failed.failure)
     }
 
-    @Test fun anOfflineFallbackIsNotLive() {
-        val state = reduceLive(GradesUiState(), old, listOf(live, cached(700)), nowMs = 9_000_000)
+    @Test fun anOfflineFallbackIsNotLiveAndSaysWhy() {
+        val state = reduceLive(GradesUiState(), old, terms, listOf(live, cached(700)), 9_000_000, offline)
         assertNull(state.liveAtMs)
         assertEquals(700L, state.dataAtSec)
         assertEquals(old, state.sections)
+        assertEquals(offline, state.failure)
     }
 
     @Test fun anEmptyListIsLiveOnlyWhenTheTermsAreLive() {
         assertTrue(isLive(listOf(live)))
         assertFalse(isLive(listOf(cached(1))))
         assertFalse(isLive(emptyList()))
-        assertNull(reduceLive(GradesUiState(), emptyList(), listOf(cached(30)), 9_000).liveAtMs)
-        assertEquals(9_000L, reduceLive(GradesUiState(), emptyList(), listOf(live), 9_000).liveAtMs)
+        assertNull(reduceLive(GradesUiState(), emptyList(), terms, listOf(cached(30)), 9_000, offline).liveAtMs)
+        assertEquals(9_000L, reduceLive(GradesUiState(), emptyList(), terms, listOf(live), 9_000, offline).liveAtMs)
     }
 
-    @Test fun aSuccessfulRefreshClearsTheFailureButKeepsACacheReadError() {
-        val failed = reduceFailure(reduceLive(GradesUiState(), old, listOf(live), 1_000), ErrorKind.API)
-        assertFalse(reduceLive(failed, fresh, listOf(live), 2_000).refreshFailed)
-        assertEquals(ErrorKind.STORAGE, reduceLive(reduceCacheFailure(GradesUiState(), ErrorKind.STORAGE), old, listOf(live), 1).error)
+    @Test fun aSuccessfulRefreshClearsTheFailure() {
+        val failed = reduceFailure(reduceLive(GradesUiState(), old, terms, listOf(live), 1_000, offline), failure)
+        assertNull(reduceLive(failed, fresh, terms, listOf(live), 2_000, offline).failure)
+    }
+
+    @Test fun theSyncStatesFollowTheSameRulesAsToday() {
+        // Nothing known and a failure: a full-screen state. With data: a banner over it.
+        assertEquals(HomeMode.NoCacheOffline, homeMode(reduceFailure(GradesUiState(), offline).asHomeState(), expired = false))
+        assertEquals(HomeMode.Skeleton, homeMode(GradesUiState().asHomeState(), expired = false))
+        val shown = reduceFailure(reduceLive(GradesUiState(), old, terms, listOf(live), 1_000, offline), failure).asHomeState()
+        assertEquals(HomeMode.Content, homeMode(shown, expired = false))
+        assertEquals(HomeBanner.SyncError, homeBanner(shown, expired = false))
+        // An empty list of grades is still data.
+        assertEquals(HomeMode.Content, homeMode(reduceLive(GradesUiState(), emptyList(), terms, listOf(live), 1, offline).asHomeState(), false))
     }
 }

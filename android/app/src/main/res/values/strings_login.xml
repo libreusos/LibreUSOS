@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Sign-in and onboarding (SYSTEM.md sections 11, 12, 14) -->
+    <string name="onboarding_universities_title">Choose your university</string>
+    <string name="onboarding_universities_body">LibreUSOS talks directly to your university\'s USOS. You type your password only on the university\'s own page.</string>
+    <string name="onboarding_key_embedded">Key built in</string>
+    <string name="onboarding_key_required">Needs your own key</string>
+    <string name="onboarding_other_link">University not listed? Enter its USOS API address</string>
+    <string name="onboarding_sign_in_with">Sign in with USOS · %1$s</string>
+    <string name="onboarding_logo_description">LibreUSOS</string>
+
+    <string name="onboarding_other_title">Another university</string>
+    <string name="onboarding_other_body">Enter the USOS API address of your university. If it has no key for LibreUSOS yet, you can generate one yourself in 2 minutes.</string>
+    <string name="onboarding_url_label">USOS API address</string>
+    <string name="onboarding_url_error_no_api">There is no USOS API at this address. It usually starts with usosapi., usosapps. or apps.usos.</string>
+    <string name="onboarding_url_error_invalid">That does not look like an address. Enter all of it, for example https://usosapi.university.edu/</string>
+    <string name="onboarding_url_error_https">The address must start with https://</string>
+    <string name="onboarding_key_section">App key</string>
+    <string name="onboarding_consumer_key">Consumer key</string>
+    <string name="onboarding_consumer_secret">Consumer secret</string>
+    <string name="onboarding_secret_note">Stored encrypted with the Android Keystore. It never leaves your phone.</string>
+    <string name="onboarding_key_rejected">USOS rejected this key. Check the consumer key and consumer secret.</string>
+    <string name="onboarding_generate_key">Generate a key on the university\'s site</string>
+    <string name="onboarding_show_secret">Show consumer secret</string>
+    <string name="onboarding_hide_secret">Hide consumer secret</string>
+    <string name="onboarding_submit_other">Check and sign in</string>
+    <string name="onboarding_hint_fix_url">Fix the USOS API address first</string>
+    <string name="onboarding_hint_fill_in">Fill in the address, consumer key and consumer secret</string>
+    <string name="onboarding_logout_warnings">You are signed out, but not everything worked:</string>
+
+    <string name="onboarding_waiting_title">Complete sign-in in the browser</string>
+    <string name="onboarding_waiting_body">We opened your university\'s sign-in page (%1$s). Once you approve, you come back here on your own.</string>
+    <string name="onboarding_step_1_title">Sign in with your university account</string>
+    <string name="onboarding_step_2_title">Allow LibreUSOS access</string>
+    <string name="onboarding_step_2_body">Timetable, grades, tests, e-mail address</string>
+    <string name="onboarding_step_3_title">Come back to the app</string>
+    <string name="onboarding_step_3_body">The first sync takes about 10 s</string>
+    <string name="onboarding_progress_waiting">Waiting for USOS…</string>
+    <string name="onboarding_progress_exchanging">Finishing sign-in…</string>
+    <string name="onboarding_progress_syncing">First sync: fetching your timetable and grades…</string>
+    <string name="onboarding_step_done">Done</string>
+    <string name="onboarding_step_current">In progress</string>
+    <string name="onboarding_reopen_page">Open the page again</string>
+
+    <string name="onboarding_retry">Sign in again</string>
+    <string name="onboarding_choose_other">Choose another university</string>
+    <string name="onboarding_cancelled_title">Sign-in interrupted</string>
+    <string name="onboarding_cancelled_body">The browser tab was closed before you approved. Nothing was saved.</string>
+    <string name="onboarding_timeout_title">No answer from USOS</string>
+    <string name="onboarding_timeout_body">10 minutes passed without a confirmation. Start signing in again.</string>
+    <string name="onboarding_denied_title">Access not granted</string>
+    <string name="onboarding_denied_body">You chose \"Deny\" on the university\'s page. Without your consent LibreUSOS cannot fetch your timetable or grades.</string>
+    <string name="onboarding_failed_title">Could not sign in</string>
+    <string name="onboarding_failed_body">Signing in was not completed. Check your connection and try again. Nothing was saved.</string>
+    <string name="onboarding_details">Details</string>
+</resources>
