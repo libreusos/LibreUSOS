@@ -1,0 +1,51 @@
+[package]
+name = "usos-desktop"
+description = "LibreUSOS desktop app (GPUI)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "usos-desktop"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+chrono = { workspace = true, features = ["clock"] }
+dirs.workspace = true
+futures-lite = "2"
+serde.workspace = true
+tokio.workspace = true
+toml.workspace = true
+url.workspace = true
+usos-core.workspace = true
+usos-store.workspace = true
+
+# GPUI. Zed's `gpui` on crates.io (0.2.x) is a stale snapshot that gpui-component 0.9 does not
+# build against; gpui-component 0.9 is written for the `gpui-pre` snapshot (renamed back to
+# `gpui` here so the code reads normally). That snapshot has no windowing backend of its own:
+# `gpui-pre-platform` (lib `gpui_platform`) provides it, with Wayland and X11 on Linux.
+gpui = { package = "gpui-pre", version = "=0.3.11" }
+gpui_platform = { package = "gpui-pre-platform", version = "=0.3.11", features = ["wayland", "x11"] }
+gpui-component = "0.9"
+# Lucide icons used inside gpui-component widgets; chained behind our own asset source.
+gpui-kit-assets = "0.9"
+rust-embed = { version = "8", features = ["include-exclude", "debug-embed"] }
+
+# Material 3 colour generation (SYSTEM.md section 3). Spec2021 is pinned in code.
+material-colors = "0.5"
+
+# The XDG settings portal (colour scheme, accent, contrast, reduced motion). The version is the
+# one GPUI's Linux backend already pulls in (`cargo tree -i ashpd` shows a single copy), so the
+# binary carries one zbus stack. It does not build on Windows (it needs `std::os::unix`).
+[target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
+ashpd = { version = "0.13", default-features = false, features = ["async-io", "settings"] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = ["UI_ViewManagement", "Foundation", "Win32_Globalization"] }
+
+[dev-dependencies]
+serde_json.workspace = true
+tempfile.workspace = true

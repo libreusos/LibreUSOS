@@ -29,3 +29,22 @@ use_consumer_key() {
 remap_flags() {
     printf -- '--remap-path-prefix=%s=/libreusos --remap-path-prefix=%s=/cargo' "$ROOT" "$CARGO_HOME"
 }
+
+# use_consumer_key_unless_mr: like use_consumer_key, but a merge request pipeline builds without an
+# embedded key (protected variables may be missing there, and its artifacts must not carry the secret).
+use_consumer_key_unless_mr() {
+    if [ "${CI_PIPELINE_SOURCE:-}" = merge_request_event ]; then
+        export USOS_NO_EMBEDDED_KEY=1
+        echo "note: merge request pipeline, building without an embedded consumer key"
+    else
+        use_consumer_key
+    fi
+}
+
+# System libraries GPUI builds against, on the rust:*-bookworm image.
+install_desktop_deps() {
+    apt-get update -qq
+    apt-get install -y -qq --no-install-recommends \
+        clang pkg-config libfontconfig-dev libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev \
+        libxcb1-dev libxcb-xkb-dev libx11-dev libvulkan-dev libasound2-dev >/dev/null
+}

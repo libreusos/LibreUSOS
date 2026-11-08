@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=LibreUSOS
+GenericName=USOS client
+GenericName[pl]=Klient USOS
+Comment=Timetable, grades and tests from USOS
+Comment[pl]=Plan zajęć, oceny i testy z USOS
+Exec=usos-desktop
+Icon=pl.libreusos.LibreUSOS
+Terminal=false
+Categories=Education;
+StartupWMClass=pl.libreusos.LibreUSOS
