@@ -4,68 +4,74 @@
 
     <string name="loading">Ładowanie…</string>
 
-    <string name="login_title">Logowanie do USOS</string>
-    <string name="login_base_url">Adres API USOS</string>
-    <string name="login_consumer_key">Klucz konsumenta</string>
-    <string name="login_consumer_secret">Sekret konsumenta</string>
-    <string name="login_key_needed">Ta wersja aplikacji nie zawiera klucza konsumenta dla tego serwera. Podaj klucz i sekret zarejestrowane dla niego.</string>
-    <string name="login_button">Zaloguj</string>
-    <string name="login_in_progress">Czekam na przeglądarkę…</string>
-    <string name="login_warnings">Ostrzeżenia</string>
 
     <string name="home_title">Dziś</string>
-    <string name="home_logged_in_as">Zalogowano jako %1$s</string>
-    <string name="home_timetable">Dzisiejszy plan zajęć</string>
-    <string name="home_no_classes">Dziś nie ma zajęć.</string>
-    <string name="home_source_live">Dane na żywo</string>
-    <string name="home_source_cached">Dane z pamięci podręcznej, pobrane %1$s</string>
-    <string name="home_refresh">Odśwież</string>
-    <string name="home_logout">Wyloguj</string>
     <string name="home_unnamed">(bez nazwy)</string>
 
     <string name="nav_today">Dziś</string>
-    <string name="nav_timetable">Plan zajęć</string>
+    <string name="nav_timetable">Plan</string>
     <string name="nav_grades">Oceny</string>
+    <string name="grades_tab_courses">Przedmioty</string>
     <string name="grades_tab_tests">Sprawdziany</string>
+    <string name="grades_term_picker">Semestr</string>
+    <string name="term_word_ongoing">trwa</string>
+    <string name="term_word_ended">zakończony</string>
+    <string name="term_word_summer">letni</string>
+    <string name="term_word_winter">zimowy</string>
+
+    <string name="grades_fetching_first">Pobieranie ocen…</string>
+    <string name="grades_banner_sync_error">Nie udało się odświeżyć ocen. USOS uczelni nie odpowiada.</string>
+    <string name="grades_banner_sync_error_generic">Nie udało się odświeżyć ocen.</string>
+    <string name="grades_banner_expired">Sesja USOS wygasła. Oceny mogą być nieaktualne.</string>
+    <string name="grades_offline_body">Pierwsze pobranie ocen wymaga połączenia. Potem LibreUSOS działa też offline.</string>
+    <string name="grades_failed_title">Nie udało się pobrać ocen</string>
+    <string name="grades_expired_body">Zaloguj się ponownie, aby pobrać oceny.</string>
+
+    <plurals name="grades_courses_count">
+        <item quantity="one">%d przedmiot</item>
+        <item quantity="few">%d przedmioty</item>
+        <item quantity="many">%d przedmiotów</item>
+        <item quantity="other">%d przedmiotu</item>
+    </plurals>
+    <string name="grades_empty_title">Jeszcze brak ocen w tym semestrze</string>
+    <string name="grades_empty_body">Masz %1$s. Gdy prowadzący wpiszą oceny do USOS, pojawią się tutaj, także cząstkowe.</string>
+    <string name="grades_empty_body_none">Gdy prowadzący wpiszą oceny do USOS, pojawią się tutaj, także cząstkowe.</string>
+    <string name="grades_previous_term">Poprzedni semestr · %1$s</string>
+    <string name="grades_ects">%1$s ECTS</string>
+    <string name="grades_session_first">I termin</string>
+    <string name="grades_session_retake">II termin</string>
+    <string name="grades_session_later">%1$d. termin</string>
+    <string name="grades_a11y_grade">Ocena %1$s</string>
+    <string name="grades_a11y_no_grade">brak oceny</string>
+    <string name="grade_detail_final">Ocena końcowa</string>
+    <string name="grade_detail_final_with">Ocena końcowa · %1$s</string>
+    <string name="grade_detail_after_retake">Po poprawie · wystawiono %1$s</string>
+    <string name="grade_detail_issued">Wystawiono %1$s</string>
+    <string name="grade_detail_retake_note">Pierwszy termin niezaliczony (%1$s). Ocena końcowa to %2$s.</string>
+    <string name="grade_detail_course_level">Przedmiot</string>
+    <string name="grade_detail_none">Ten przedmiot nie ma jeszcze ocen.</string>
 
     <string name="timetable_previous_week">Poprzedni tydzień</string>
     <string name="timetable_next_week">Następny tydzień</string>
     <string name="timetable_today">Dziś</string>
     <string name="timetable_empty_day">Tego dnia nie ma zajęć.</string>
-    <string name="timetable_cached_at">Z pamięci podręcznej, %1$s</string>
-    <string name="timetable_refresh_failed">Nie udało się odświeżyć, widoczne dane z %1$s</string>
-    <string name="timetable_offline_cached_at">Offline, z pamięci podręcznej, %1$s</string>
 
-    <string name="grades_empty">Nie ma jeszcze żadnych ocen.</string>
-    <string name="grades_cached_at">Z pamięci podręcznej, %1$s</string>
-    <string name="grades_offline_cached_at">Offline, z pamięci podręcznej, %1$s</string>
-    <string name="grades_refresh_failed">Nie udało się odświeżyć, widoczne dane z %1$s</string>
-    <string name="grades_average">Średnia %1$s</string>
-    <string name="grades_weighted_average">Średnia ważona ECTS %1$s</string>
-    <string name="grades_ects">%1$s ECTS</string>
-    <string name="grades_session_first">1. termin</string>
-    <string name="grades_session_retake">2. termin (poprawkowy)</string>
-    <string name="grades_session_later">%1$d. termin</string>
-    <string name="grades_passed">Zaliczone</string>
-    <string name="grades_failed">Niezaliczone</string>
-    <string name="grades_no_symbol">brak oceny</string>
 
-    <string name="tests_empty">Nie ma jeszcze żadnych sprawdzianów.</string>
-    <string name="tests_cached_at">Z pamięci podręcznej, %1$s</string>
-    <string name="tests_offline_cached_at">Offline, z pamięci podręcznej, %1$s</string>
-    <string name="tests_refresh_failed">Nie udało się odświeżyć, widoczne dane z %1$s</string>
+    <string name="tests_empty_title">Jeszcze brak sprawdzianów w tym semestrze</string>
+    <string name="tests_empty_body">Gdy prowadzący dodadzą sprawdziany w USOS, pojawią się tutaj.</string>
     <string name="tests_skipped">Nie udało się wczytać części sprawdzianów.</string>
-    <string name="tests_points_total">Punkty %1$s</string>
-    <string name="tests_limited">Dotyczy wybranych grup</string>
-    <string name="tests_hidden">Ukryte przez prowadzącego</string>
-    <string name="tests_expand">Rozwiń</string>
-    <string name="tests_collapse">Zwiń</string>
+    <string name="tests_section_points">Z punktami</string>
+    <string name="tests_section_unavailable">Niedostępne</string>
+    <plurals name="tests_count">
+        <item quantity="one">%d sprawdzian</item>
+        <item quantity="few">%d sprawdziany</item>
+        <item quantity="many">%d sprawdzianów</item>
+        <item quantity="other">%d sprawdzianu</item>
+    </plurals>
+    <string name="tests_reason_hidden">Wyniki ukryte przez prowadzącego</string>
+    <string name="tests_reason_groups">Dostępne tylko dla wybranych grup</string>
+    <string name="tests_a11y_hidden">ukryte</string>
 
-    <string name="activity_room">Sala %1$s</string>
-    <string name="activity_group">Grupa %1$d</string>
-    <string name="activity_overlaps">Nakłada się</string>
-    <string name="kind_exam">Egzamin</string>
-    <string name="kind_meeting">Spotkanie</string>
 
     <string name="frequency_fortnight">Co drugi tydzień</string>
     <string name="frequency_fortnight_odd">Co drugi tydzień (nieparzysty)</string>
@@ -77,7 +83,6 @@
     <string name="frequency_once">Jednorazowo</string>
     <string name="frequency_irregular">Nieregularnie</string>
 
-    <string name="error_prefix">Błąd: %1$s</string>
     <string name="error_network">Nie można połączyć się z serwerem. Sprawdź połączenie i spróbuj ponownie.</string>
     <string name="error_unauthorized">Autoryzacja została odrzucona lub nie jest już ważna.</string>
     <string name="error_api">Serwer odrzucił żądanie.</string>
@@ -90,16 +95,210 @@
     <string name="error_session_expired">Sesja wygasła. Zaloguj się ponownie.</string>
     <string name="error_unknown">Coś poszło nie tak.</string>
 
-    <string name="widget_name">Dziś i następne</string>
-    <string name="widget_description">Pozostałe dziś zajęcia albo zajęcia z najbliższego dnia, w którym są.</string>
+    <string name="widget_name">Plan zajęć</string>
+    <string name="widget_description">Bieżące i następne zajęcia, reszta dnia</string>
     <string name="widget_today">Dziś</string>
     <string name="widget_tomorrow">Jutro</string>
-    <string name="widget_cached">stan z %1$s</string>
-    <string name="widget_more">+%1$d więcej</string>
+    <string name="widget_tomorrow_header">Jutro, %1$s</string>
+    <string name="widget_state_now">Teraz</string>
+    <string name="widget_state_next">Następne</string>
+    <string name="widget_state_first">Pierwsze</string>
+    <string name="widget_row_now">teraz</string>
+    <string name="widget_row_next">następne</string>
+    <string name="widget_row_first">pierwsze</string>
+    <string name="widget_until">do %1$s</string>
+    <string name="widget_then">potem %1$s %2$s</string>
+    <string name="widget_position">%1$d z %2$d</string>
+    <string name="widget_more">+%1$d później</string>
+    <string name="widget_over">Dziś już bez zajęć</string>
+    <string name="widget_weekend">Weekend</string>
     <string name="widget_empty">Brak zajęć w najbliższych dniach.</string>
-    <string name="widget_logged_out">Otwórz LibreUSOS, aby się zalogować i zobaczyć plan zajęć.</string>
-    <string name="widget_no_data">Brak zapisanego planu. Dotknij, aby otworzyć LibreUSOS i go pobrać.</string>
+    <string name="widget_sign_in_title">Zaloguj się do USOS</string>
+    <string name="widget_sign_in_body">Tu pojawią się Twoje dzisiejsze zajęcia.</string>
+    <string name="widget_sign_in">Zaloguj</string>
+    <string name="widget_refresh">Odśwież</string>
     <string name="widget_preview_class1">Algorytmy</string>
     <string name="widget_preview_class2">Bazy danych</string>
     <string name="widget_preview_class3">Analiza matematyczna</string>
+
+    <string-array name="week_motif_days">
+        <item>PN</item>
+        <item>WT</item>
+        <item>ŚR</item>
+        <item>CZ</item>
+        <item>PT</item>
+    </string-array>
+    <string name="week_motif_legend_class">zajęcia</string>
+    <string name="week_motif_legend_free">wolne</string>
+    <string name="week_motif_legend_today">dziś</string>
+
+    <string name="nav_more">Więcej</string>
+    <string name="action_back">Wstecz</string>
+    <string name="action_cancel">Anuluj</string>
+    <string name="action_ok">OK</string>
+
+    <string name="more_group_studies">Studia</string>
+    <string name="more_group_affairs">Sprawy</string>
+    <string name="more_group_communication">Komunikacja</string>
+    <string name="more_deadlines">Terminy</string>
+    <string name="more_registrations">Rejestracje</string>
+    <string name="more_surveys">Ankiety</string>
+    <string name="more_search_plan">Wyszukaj plan</string>
+    <string name="more_payments">Płatności</string>
+    <string name="more_mlegitymacja">mLegitymacja</string>
+    <string name="more_news">Aktualności</string>
+    <string name="more_messages">Wiadomości</string>
+    <string name="more_settings">Ustawienia</string>
+    <string name="more_soon">wkrótce</string>
+
+    <string name="account_unknown_name">Twoje konto</string>
+    <string name="account_switch">Zmień uczelnię lub konto</string>
+    <string name="account_switch_hint">Jedno konto naraz; dane drugiego są usuwane</string>
+    <string name="account_logout">Wyloguj się</string>
+    <string name="account_logout_hint">Usuwa dane z tego urządzenia</string>
+    <string name="confirm_logout_title">Wylogować się?</string>
+    <string name="confirm_logout_body">Dane zapisane na tym urządzeniu, w tym plan i oceny z pamięci podręcznej, zostaną usunięte.</string>
+    <string name="confirm_switch_title">Zmienić uczelnię lub konto?</string>
+    <string name="confirm_switch_body">Wylogujemy Cię i usuniemy dane z tego urządzenia. Potem wybierzesz uczelnię i zalogujesz się ponownie.</string>
+    <string name="confirm_switch_action">Wyloguj i zmień</string>
+    <string name="logout_failed_title">Nie udało się wylogować</string>
+
+    <string name="settings_title">Ustawienia</string>
+    <string name="settings_section_appearance">Wygląd</string>
+    <string name="settings_theme">Motyw</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Jasny</string>
+    <string name="settings_theme_dark">Ciemny</string>
+    <string name="settings_dynamic_color">Kolory z tapety</string>
+    <string name="settings_dynamic_color_hint">Material You · Android 12+</string>
+    <string name="settings_section_sync">Synchronizacja</string>
+    <string name="settings_sync_interval">Synchronizacja w tle</string>
+    <string name="settings_sync_interval_title">Jak często synchronizować</string>
+    <plurals name="settings_every_hours">
+        <item quantity="one">Co godzinę</item>
+        <item quantity="few">Co %d godziny</item>
+        <item quantity="many">Co %d godzin</item>
+        <item quantity="other">Co %d godziny</item>
+    </plurals>
+    <string name="settings_section_account">Konto</string>
+    <string name="settings_section_about">O aplikacji</string>
+    <string name="settings_version">Wersja</string>
+    <string name="settings_licences">Licencje</string>
+    <string name="settings_licences_hint">Geist, Material Symbols</string>
+
+    <string name="today_refresh">Odśwież</string>
+    <string name="today_fetching_first">Pobieranie planu…</string>
+    <string name="today_fetching">Synchronizacja…</string>
+    <string name="today_status_synced">Zsynchronizowano %1$s</string>
+    <string name="today_status_data_from_failed">Dane z %1$s · próba o %2$s nieudana</string>
+    <string name="today_status_last_sync">Ostatnia synchronizacja %1$s</string>
+    <string name="today_status_offline_no_data">Offline · jeszcze brak danych</string>
+    <string name="today_status_first_failed">Pierwsza synchronizacja nieudana</string>
+    <string name="today_stamp_today">dziś, %1$s</string>
+    <string name="today_stamp_yesterday">wczoraj, %1$s</string>
+
+    <string name="today_banner_offline">Brak połączenia. Dane z %1$s.</string>
+    <string name="today_banner_sync_error">Nie udało się odświeżyć planu. USOS uczelni nie odpowiada.</string>
+    <string name="today_banner_sync_error_generic">Nie udało się odświeżyć planu.</string>
+    <string name="today_banner_retry_in">Spróbujemy ponownie za %1$s.</string>
+    <string name="today_banner_expired">Sesja USOS wygasła. Plan może być nieaktualny.</string>
+    <string name="today_action_retry">Spróbuj ponownie</string>
+    <string name="today_action_relogin">Zaloguj ponownie</string>
+    <string name="today_action_details">Szczegóły</string>
+
+    <string name="today_span_min">%1$d min</string>
+    <string name="today_span_h">%1$d h</string>
+    <string name="today_span_h_min">%1$d h %2$d min</string>
+    <string name="today_in">za %1$s</string>
+    <string name="today_remaining">do końca %1$s</string>
+    <string name="today_gap">Okienko · %1$s</string>
+
+    <string name="today_badge_clash">Kolizja</string>
+    <string name="today_badge_now">Teraz</string>
+    <string name="today_next_label">Następne:</string>
+    <string name="today_plan_title">Plan dnia</string>
+    <plurals name="today_classes_count">
+        <item quantity="one">%d zajęcie</item>
+        <item quantity="few">%d zajęcia</item>
+        <item quantity="many">%d zajęć</item>
+        <item quantity="other">%d zajęcia</item>
+    </plurals>
+    <string name="today_row_current">w toku · szczegóły wyżej</string>
+    <string name="today_row_upcoming">następne · szczegóły wyżej</string>
+    <string name="today_room">s. %1$s</string>
+    <string name="today_group">gr. %1$d</string>
+
+    <string name="today_empty_title">Dziś bez zajęć</string>
+    <string name="today_empty_body">W planie nie ma na dziś żadnych zajęć.</string>
+    <string name="today_empty_none_soon">W planie nie ma zajęć dziś ani przez najbliższy tydzień.</string>
+    <string name="today_next_classes">Najbliższe zajęcia</string>
+    <string name="today_tomorrow">jutro, %1$s</string>
+    <plurals name="today_more_classes">
+        <item quantity="one">Jeszcze %d zajęcie</item>
+        <item quantity="few">Jeszcze %d zajęcia</item>
+        <item quantity="many">Jeszcze %d zajęć</item>
+        <item quantity="other">Jeszcze %d zajęcia</item>
+    </plurals>
+    <string name="today_whole_week">Cały tydzień</string>
+
+    <string name="today_offline_title">Brak internetu</string>
+    <string name="today_offline_body">Pierwsze pobranie planu wymaga połączenia. Potem LibreUSOS działa też offline.</string>
+    <string name="today_server_title">USOS uczelni nie odpowiada</string>
+    <string name="today_server_body">To zwykle chwilowe. Spróbujemy sami za %1$s; możesz też spróbować teraz.</string>
+    <string name="today_server_body_now">To zwykle chwilowe. Możesz spróbować teraz.</string>
+    <string name="today_failed_title">Nie udało się pobrać planu</string>
+    <string name="today_failed_body">Sprawdź połączenie i spróbuj ponownie.</string>
+    <string name="today_expired_title">Sesja USOS wygasła</string>
+    <string name="today_expired_body">Zaloguj się ponownie, aby pobrać plan.</string>
+
+    <string name="today_details_title">Szczegóły błędu</string>
+    <string name="today_details_hint">Przydatne, gdy zgłaszasz problem uczelni albo w repozytorium LibreUSOS.</string>
+    <string name="today_details_copy">Kopiuj</string>
+    <string name="today_details_app">LibreUSOS %1$s · Android %2$s</string>
+
+    <!-- Plan i szczegóły zajęć -->
+    <string name="plan_eyebrow_week">%1$s · tydz. %2$d</string>
+    <string name="plan_view_day">Dzień</string>
+    <string name="plan_view_week">Tydzień</string>
+    <string-array name="plan_day_abbr">
+        <item>PN</item>
+        <item>WT</item>
+        <item>ŚR</item>
+        <item>CZ</item>
+        <item>PT</item>
+        <item>SO</item>
+        <item>ND</item>
+    </string-array>
+    <string name="plan_clash_lead">Kolizja %1$s–%2$s.</string>
+    <string name="plan_clash_pair">%1$s i %2$s nakładają się o %3$s.</string>
+    <plurals name="plan_clash_many">
+        <item quantity="one">%d zajęcie nakłada się.</item>
+        <item quantity="few">%d zajęcia nakładają się.</item>
+        <item quantity="many">%d zajęć nakłada się.</item>
+        <item quantity="other">%d zajęcia nakładają się.</item>
+    </plurals>
+    <string name="plan_clash_hint">Dotknij kolizji, żeby zobaczyć zajęcia obok siebie.</string>
+    <plurals name="plan_clash_sheet_title">
+        <item quantity="one">%d zajęcie w tym samym czasie</item>
+        <item quantity="few">%d zajęcia w tym samym czasie</item>
+        <item quantity="many">%d zajęć w tym samym czasie</item>
+        <item quantity="other">%d zajęcia w tym samym czasie</item>
+    </plurals>
+    <string name="plan_clash_sheet_note">LibreUSOS pokazuje plan z USOS i nie wybiera za Ciebie. Jeśli to błąd w planie, zgłoś go w dziekanacie.</string>
+    <string name="plan_legend_lecture">wykład</string>
+    <string name="plan_legend_lab">laboratorium</string>
+    <string name="plan_legend_other">ćw., proj., sem., lektorat</string>
+    <string name="plan_a11y_time">%1$s do %2$s</string>
+    <string name="plan_a11y_room">sala %1$s</string>
+    <string name="plan_a11y_building">budynek %1$s</string>
+    <string name="plan_a11y_clash">kolizja</string>
+
+    <string name="detail_room">Sala %1$s</string>
+    <string name="detail_building">budynek %1$s</string>
+    <string name="detail_group">Grupa %1$d</string>
+    <string name="detail_every_week">Co tydzień</string>
+    <string name="detail_group_meetings">Spotkania tej grupy</string>
+    <string name="detail_position">To %1$d. z %2$d spotkań w planie</string>
+    <string name="detail_next">następne %1$s</string>
+    <string name="detail_next_meetings">Kolejne spotkania</string>
 </resources>

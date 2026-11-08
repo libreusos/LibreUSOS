@@ -5,6 +5,7 @@ import androidx.glance.appwidget.updateAll
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import io.gitlab.voxix.libreusos.LibreUsosApp
+import io.gitlab.voxix.libreusos.data.SyncStore
 import io.gitlab.voxix.libreusos.data.todayIn
 import io.gitlab.voxix.libreusos.ui.logFailure
 import io.gitlab.voxix.libreusos.widget.TimetableWidget
@@ -24,7 +25,11 @@ const val SYNC_WEEKS = 3u
 class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val container = (applicationContext as LibreUsosApp).container
-        val retryNetwork = inputData.getBoolean(SyncScheduler.KEY_RETRY, true)
+        val store = container.syncStore
+        // The planned retry has nothing to do when a sync worked in the meantime.
+        if (inputData.getBoolean(SyncScheduler.KEY_IS_RETRY, false) && store.record.value.nextAttemptAtMs == null) {
+            return Result.success()
+        }
         var synced = false
         val result = try {
             withContext(Dispatchers.IO) {
@@ -36,6 +41,7 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
                 }
                 client.sync(todayIn(installationTimeZone()).toString(), SYNC_WEEKS)
                 synced = true
+                store.succeeded()
                 Result.success()
             }
         } catch (e: CancellationException) {
@@ -43,36 +49,25 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         } catch (t: Throwable) {
             // Class name only: core messages and tokens never reach logcat.
             logFailure(t)
-            val outcome = outcomeOf(t, retryNetwork, runAttemptCount)
-            if (outcome == SyncOutcome.StopUnauthorized) {
-                // The session is dead: no more syncing and no widget refresh chain; redraw once.
+            if (outcomeOf(t) == SyncOutcome.StopUnauthorized) {
+                // The session is dead: no more syncing. The 401 is not retried: the app shows "Sesja USOS
+                // wygasła" and asks for a new login, and the widget shows its "Zaloguj ponownie" chip.
                 SyncScheduler.cancelPeriodic(applicationContext)
-                SyncScheduler.cancelWidgetRefresh(applicationContext)
+                store.setExpired(true)
                 TimetableWidget().updateAll(applicationContext)
+            } else {
+                store.failed()
             }
-            if (outcome == SyncOutcome.Retry) Result.retry() else Result.failure()
+            Result.failure()
         }
         if (synced) TimetableWidget().updateAll(applicationContext)
         return result
     }
-
 }
 
-/** What a failed sync means for WorkManager. */
-enum class SyncOutcome { Retry, Failure, StopUnauthorized }
+/** What a failed sync means: another attempt is planned by the app's own backoff (see [SyncStore]), or never. */
+enum class SyncOutcome { Failure, StopUnauthorized }
 
-private const val MAX_NETWORK_ATTEMPTS = 5
-private const val MAX_API_ATTEMPTS = 3
-
-/**
- * Pure mapping from a sync error to its outcome. [runAttempt] is WorkManager's `runAttemptCount`
- * (0 on the first run). A periodic work that fails still runs again in its next period.
- */
-fun outcomeOf(t: Throwable, retryNetwork: Boolean, runAttempt: Int): SyncOutcome = when (t) {
-    is UsosException.Unauthorized -> SyncOutcome.StopUnauthorized
-    is UsosException.Network ->
-        if (retryNetwork && runAttempt < MAX_NETWORK_ATTEMPTS) SyncOutcome.Retry else SyncOutcome.Failure
-    is UsosException.Api ->
-        if (retryNetwork && runAttempt < MAX_API_ATTEMPTS) SyncOutcome.Retry else SyncOutcome.Failure
-    else -> SyncOutcome.Failure
-}
+/** Pure mapping from a sync error to its outcome. A periodic work that fails still runs again in its next period. */
+fun outcomeOf(t: Throwable): SyncOutcome =
+    if (t is UsosException.Unauthorized) SyncOutcome.StopUnauthorized else SyncOutcome.Failure

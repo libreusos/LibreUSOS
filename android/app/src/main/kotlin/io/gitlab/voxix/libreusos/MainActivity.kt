@@ -22,7 +22,6 @@ import io.gitlab.voxix.libreusos.ui.AuthViewModel
 import io.gitlab.voxix.libreusos.ui.TAB_TIMETABLE
 import io.gitlab.voxix.libreusos.widget.ACTION_OPEN_TIMETABLE
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -50,7 +49,7 @@ class MainActivity : ComponentActivity() {
         handledRedirect = savedInstanceState?.getString(STATE_HANDLED_REDIRECT)
         enableEdgeToEdge()
         setContent {
-            val tab by requestedTab.asStateFlow().collectAsStateWithLifecycle()
+            val tab by requestedTab.collectAsStateWithLifecycle()
             App(authViewModel, container, tab, onTabHandled = { requestedTab.value = null })
         }
 
@@ -64,6 +63,18 @@ class MainActivity : ComponentActivity() {
             authViewModel.auth.collect { if (it == AuthState.LoggedOut) requestedTab.value = null }
         }
         handleIntent(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // After onNewIntent: a redirect is handled before this, so only a return without one is a cancel.
+        authViewModel.onAppResumed()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // A rotation also stops the activity; only a real departure (the browser tab) counts.
+        if (!isChangingConfigurations) authViewModel.onAppStopped()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

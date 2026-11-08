@@ -3,6 +3,7 @@ package io.gitlab.voxix.libreusos.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.gitlab.voxix.libreusos.AppContainer
+import io.gitlab.voxix.libreusos.data.isOnline
 import io.gitlab.voxix.libreusos.data.isStale
 import io.gitlab.voxix.libreusos.data.todayIn
 import kotlinx.coroutines.CancellationException
@@ -24,10 +25,17 @@ import java.time.ZoneId
 class TestsViewModel(
     private val container: AppContainer,
     private val onSessionExpired: () -> Unit,
+    private val online: () -> Boolean = { isOnline(container.appContext) },
     private val nowMs: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
     private val _state = MutableStateFlow(TestsUiState())
     val state: StateFlow<TestsUiState> = _state.asStateFlow()
+
+    /** When the automatic retry runs, for "spróbujemy ponownie za 15 min". */
+    val syncRecord = container.syncStore.record
+
+    /** The university's USOS address, for the technical details of an error. */
+    val baseUrl: String get() = container.settings.baseUrl
 
     // Touched on the main thread only.
     private var job: Job? = null
@@ -50,7 +58,7 @@ class TestsViewModel(
 
     private fun start(userInitiated: Boolean) {
         if (expired) return
-        _state.update { it.copy(loading = true, refreshing = userInitiated, error = null) }
+        _state.update { it.copy(loading = true, refreshing = userInitiated) }
         val started = viewModelScope.launch(start = CoroutineStart.LAZY) {
             try {
                 load(forceTerms = userInitiated)
@@ -64,7 +72,7 @@ class TestsViewModel(
                         onSessionExpired()
                     }
                 } else {
-                    _state.update { reduceTestsFailure(it, errorKindOf(t)) }
+                    _state.update { reduceTestsFailure(it, failureOf(t, online(), nowMs())) }
                 }
             } finally {
                 job = null
@@ -80,8 +88,9 @@ class TestsViewModel(
         val client = withContext(Dispatchers.IO) { container.client(container.settings.baseUrl) }
             ?: throw AppException(ErrorKind.KEY_MISSING)
         val zone = withContext(Dispatchers.IO) { installationTimeZone() }
-        val today = todayIn(zone).toString()
-        _state.update { it.copy(zone = ZoneId.of(zone)) }
+        val todayDate = todayIn(zone)
+        val today = todayDate.toString()
+        _state.update { it.copy(zone = ZoneId.of(zone), today = todayDate) }
         // The cache is read every time: older terms are only ever served from it (see liveTermIds).
         var cached = emptyList<TermTests>()
         try {
@@ -91,35 +100,39 @@ class TestsViewModel(
             }
             cached = tests
             _state.update {
-                reduceTestsCache(it, buildTestSections(terms.terms, tests), listOf(terms.source) + tests.map { t -> t.source })
+                reduceTestsCache(
+                    it,
+                    buildTestSections(terms.terms, tests),
+                    TermList(terms.terms, terms.current?.id),
+                    listOf(terms.source) + tests.map { t -> t.source },
+                )
             }
         } catch (e: CancellationException) {
             throw e
         } catch (_: UsosException.NotCached) {
             // Nothing stored yet.
         } catch (t: Throwable) {
+            // The live call below may still work.
             logFailure(t)
-            if (_state.value.sections == null) _state.update { reduceTestsCacheFailure(it, errorKindOf(t)) }
         }
         val (terms, liveIds, live) = withContext(Dispatchers.IO) {
             val terms = container.terms.terms(today, force = forceTerms) { client.terms(today) }
             val liveIds = liveTermIds(terms.terms, cached.map { it.termId }.toSet())
             Triple(terms, liveIds, client.courseTests(liveIds))
         }
+        // Not live: the core fell back to its copy because the network failed, or a term is missing.
+        val notLive = failureOf(UsosException.Network("fell back to cache"), online(), nowMs())
         _state.update {
             reduceTestsLive(
                 it,
                 buildTestSections(terms.terms, mergeTermTests(cached, live.terms, liveIds)),
+                TermList(terms.terms, terms.current?.id),
                 listOf(terms.source) + live.terms.map { t -> t.source },
                 live.terms.sumOf { t -> t.skipped.size },
                 live.failedTerms.size,
                 nowMs(),
+                notLive,
             )
         }
-    }
-
-    /** Opens or closes the row under [key]. */
-    fun toggle(key: String) {
-        _state.update { reduceToggle(it, key) }
     }
 }

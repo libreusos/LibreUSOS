@@ -5,10 +5,13 @@ import androidx.lifecycle.viewModelScope
 import io.gitlab.voxix.libreusos.AppContainer
 import androidx.glance.appwidget.updateAll
 import io.gitlab.voxix.libreusos.data.SecretCodec
+import io.gitlab.voxix.libreusos.data.isStale
 import io.gitlab.voxix.libreusos.sync.SyncScheduler
 import io.gitlab.voxix.libreusos.widget.TimetableWidget
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,36 +23,43 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
+/** The longest the first sync may keep the login screen. */
+private const val FIRST_SYNC_WAIT_MS = 20_000L
+
 const val OAUTH_CALLBACK = "libreusos://oauth-callback"
 
 enum class AuthState { Loading, LoggedOut, LoggedIn }
-
-data class LoginUiState(
-    val baseUrl: String,
-    val consumerKey: String = "",
-    val consumerSecret: String = "",
-    /** True when this build has no embedded key for [baseUrl], so key and secret must be typed. */
-    val needsKey: Boolean = false,
-    val busy: Boolean = false,
-    val error: ErrorKind? = null,
-    val warnings: List<String> = emptyList(),
-)
 
 /** Activity-scoped: owns the login flow, which outlives the screens. Never logs tokens. */
 class AuthViewModel(private val container: AppContainer) : ViewModel() {
     private val _auth = MutableStateFlow(AuthState.Loading)
     val auth: StateFlow<AuthState> = _auth.asStateFlow()
 
-    private val _login = MutableStateFlow(LoginUiState(baseUrl = container.settings.baseUrl))
-    val login: StateFlow<LoginUiState> = _login.asStateFlow()
+    private val _login = MutableStateFlow(LoginFlowState(baseUrl = container.settings.baseUrl))
+    val login: StateFlow<LoginFlowState> = _login.asStateFlow()
+
+    private var timeoutJob: Job? = null
+
+    /** The coroutine of a `login()` that may still be waiting for USOS; [abandonPending] cancels it. */
+    private var loginJob: Job? = null
+
+    /** The authorisation page of the login in progress (not a secret: it carries the public request token only). */
+    private var authorizeUrl: String? = null
+
+    /** The login itself started the first sync, so the auth observer must not start a second one. */
+    @Volatile private var firstSyncStarted = false
 
     private val _homeError = MutableStateFlow<ErrorKind?>(null)
-    /** A failed logout, shown on the home screen (the user is still logged in then). */
+    /** A failed logout, shown in a dialog over the shell (the user is still logged in then). */
     val homeError: StateFlow<ErrorKind?> = _homeError.asStateFlow()
 
     private val _openUrl = Channel<String>(Channel.BUFFERED)
     /** URLs the activity must open in a browser. */
     val openUrl = _openUrl.receiveAsFlow()
+
+    private val _sessionExpired = MutableStateFlow(false)
+    /** USOS rejected the token while the app is open: the screens keep their data and offer [relogin]. */
+    val sessionExpired: StateFlow<Boolean> = _sessionExpired.asStateFlow()
 
     private val mutex = Mutex()
 
@@ -63,8 +73,15 @@ class AuthViewModel(private val container: AppContainer) : ViewModel() {
                     try {
                         val context = container.appContext
                         if (state == AuthState.LoggedIn) {
-                            SyncScheduler.schedulePeriodic(context, container.settings.syncIntervalHours)
-                            SyncScheduler.syncNow(context)
+                            val record = container.syncStore.record.value
+                            // A worker that met a 401 stopped the schedule: it stays stopped until a new login.
+                            if (!record.expired) {
+                                SyncScheduler.schedulePeriodic(context, container.settings.syncIntervalHours)
+                                // On app start only when the data is older than 15 minutes (SYSTEM.md section 11).
+                                val stale = isStale(record.lastSuccessMs, System.currentTimeMillis())
+                                if (!firstSyncStarted && stale) SyncScheduler.syncNow(context)
+                            }
+                            firstSyncStarted = false
                         } else {
                             SyncScheduler.cancelAll(context)
                         }
@@ -82,7 +99,8 @@ class AuthViewModel(private val container: AppContainer) : ViewModel() {
                 val baseUrl = _login.value.baseUrl
                 val state = runIo {
                     val needsKey = !container.hasEmbeddedKey(baseUrl)
-                    _login.update { it.copy(needsKey = needsKey) }
+                    val knownHasKey = container.hasEmbeddedKey(SIGN_IN_UNIVERSITIES.first().baseUrl)
+                    dispatch(LoginEvent.Loaded(baseUrl, knownHasKey, needsKey))
                     val loggedIn = container.client(baseUrl)?.hasToken() == true
                     if (loggedIn) AuthState.LoggedIn else AuthState.LoggedOut
                 }
@@ -91,25 +109,65 @@ class AuthViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    private fun dispatch(event: LoginEvent) = _login.update { reduceLogin(it, event) }
+
     fun onBaseUrlChange(value: String) {
-        _login.update { it.copy(baseUrl = value) }
+        dispatch(LoginEvent.BaseUrlChanged(value))
         viewModelScope.launch {
             val needsKey = runIo { !container.hasEmbeddedKey(value) } ?: return@launch
-            _login.update { if (it.baseUrl == value) it.copy(needsKey = needsKey) else it }
+            dispatch(LoginEvent.NeedsKeyResolved(value, needsKey))
         }
     }
 
-    fun onConsumerKeyChange(value: String) = _login.update { it.copy(consumerKey = value) }
+    fun onConsumerKeyChange(value: String) = dispatch(LoginEvent.KeyChanged(value))
 
-    fun onConsumerSecretChange(value: String) = _login.update { it.copy(consumerSecret = value) }
+    fun onConsumerSecretChange(value: String) = dispatch(LoginEvent.SecretChanged(value))
+
+    /** "Inna uczelnia": the form for an address and a consumer key. */
+    fun openOtherUniversity(prefillUrl: String? = null) {
+        dispatch(LoginEvent.OpenOther(prefillUrl))
+        prefillUrl?.let(::onBaseUrlChange)
+    }
+
+    fun chooseUniversity() {
+        abandonPending()
+        dispatch(LoginEvent.ChooseUniversity)
+    }
+
+    /** The back arrow of the browser step: forget this attempt and return to the screen it began on. */
+    fun abandon() {
+        abandonPending()
+        dispatch(LoginEvent.Abandoned)
+    }
+
+    private fun abandonPending() {
+        timeoutJob?.cancel()
+        loginJob?.cancel()
+        // Under the mutex: it runs after a cancelled login released it, so a login that saved a
+        // pending state just before the cancellation is cleared too, and a later login saves after it.
+        viewModelScope.launch { mutex.withLock { runIo(onError = {}) { container.pendingLoginStore.clear() } } }
+    }
+
+    /** Sign in at the known university (the one with a key built into the app). */
+    fun loginKnown() {
+        val known = SIGN_IN_UNIVERSITIES.first()
+        if (!_login.value.knownHasKey) {
+            // This build has no key for it: the same form as any other university, with the address filled in.
+            openOtherUniversity(known.baseUrl)
+            return
+        }
+        _login.update { it.copy(baseUrl = known.baseUrl, needsKey = false) }
+        login()
+    }
 
     fun login() {
         val ui = _login.value
         if (ui.busy) return
-        _login.update { it.copy(busy = true, error = null, warnings = emptyList()) }
-        viewModelScope.launch {
+        timeoutJob?.cancel()
+        dispatch(LoginEvent.Submitted)
+        loginJob = viewModelScope.launch {
             mutex.withLock {
-                val url = runIo {
+                val url = runIo(onError = { dispatch(LoginEvent.BeginFailed(it)) }) {
                     val baseUrl = ui.baseUrl.trim()
                     container.settings.baseUrl = baseUrl
                     val credentials = if (container.hasEmbeddedKey(baseUrl)) {
@@ -124,25 +182,44 @@ class AuthViewModel(private val container: AppContainer) : ViewModel() {
                     begun.authorizeUrl()
                 }
                 if (url != null) {
+                    authorizeUrl = url
+                    val now = System.currentTimeMillis()
+                    dispatch(LoginEvent.BrowserOpened(hostOf(url), now))
+                    timeoutJob = viewModelScope.launch {
+                        delay(LOGIN_TIMEOUT_MS)
+                        dispatch(LoginEvent.Tick(System.currentTimeMillis()))
+                    }
                     _openUrl.send(url)
-                    // The pending login is saved; the button works again if the user comes back without finishing.
-                    _login.update { it.copy(busy = false) }
                 }
             }
         }
     }
 
+    /** "Otwórz stronę ponownie": the same page again; a new login when the process lost it. */
+    fun reopenPage() {
+        val url = authorizeUrl
+        if (url == null) login() else viewModelScope.launch { _openUrl.send(url) }
+    }
+
     /** The browser reported an error (for example, no browser installed). */
     fun onBrowserFailed() {
-        _login.update { it.copy(busy = false, error = ErrorKind.NO_BROWSER) }
+        timeoutJob?.cancel()
+        dispatch(LoginEvent.BrowserMissing)
     }
+
+    /** The activity went out of sight (not a rotation): a browser tab may be covering it. */
+    fun onAppStopped() = dispatch(LoginEvent.AppStopped)
+
+    /** The activity is back. Without a redirect first, a waiting login was cancelled or has run out. */
+    fun onAppResumed() = dispatch(LoginEvent.AppResumed(System.currentTimeMillis()))
 
     /** The OAuth redirect URL, delivered to the activity by the `libreusos://` intent filter. */
     fun onRedirect(redirectUrl: String) {
-        _login.update { it.copy(busy = true, error = null) }
+        timeoutJob?.cancel()
+        dispatch(LoginEvent.RedirectReceived)
         viewModelScope.launch {
             mutex.withLock {
-                val loggedIn = runIo {
+                val loggedIn = runIo(onError = { dispatch(LoginEvent.ExchangeFailed(it)) }) {
                     // Always from the saved file (never an in-memory copy that can be stale).
                     val saved = container.pendingLoginStore.load() ?: throw AppException(ErrorKind.NO_LOGIN)
                     container.settings.baseUrl = saved.baseUrl
@@ -153,11 +230,23 @@ class AuthViewModel(private val container: AppContainer) : ViewModel() {
                     result
                 }
                 if (loggedIn != null) {
-                    _login.update { it.copy(busy = false, warnings = loggedIn.warnings) }
+                    _sessionExpired.value = false
+                    container.syncStore.setExpired(false)
+                    dispatch(LoginEvent.Exchanged(loggedIn.warnings))
+                    // Step 3: the first sync, so the first screen is not empty. A slow network ends the wait.
+                    firstSyncStarted = true
+                    runIo(onError = {}) {
+                        SyncScheduler.schedulePeriodic(container.appContext, container.settings.syncIntervalHours)
+                        SyncScheduler.syncNowAndWait(container.appContext, FIRST_SYNC_WAIT_MS)
+                    }
                     _auth.value = AuthState.LoggedIn
                 }
             }
         }
+    }
+
+    fun dismissLogoutError() {
+        _homeError.value = null
     }
 
     fun logout() {
@@ -177,25 +266,36 @@ class AuthViewModel(private val container: AppContainer) : ViewModel() {
                     }
                 }
                 if (warnings != null) {
-                    _login.update { it.copy(busy = false, warnings = warnings) }
+                    _sessionExpired.value = false
+                    container.syncStore.clear()
+                    dispatch(LoginEvent.LoggedOut(warnings))
                     _auth.value = AuthState.LoggedOut
                 }
             }
         }
     }
 
-    /** USOS rejected the token: forget it and ask for a new login. */
+    /**
+     * USOS rejected the token. Nothing is deleted: the cached data stays on screen under a "session
+     * expired" banner, and the dead token is replaced when [relogin] ends in a new login (the same
+     * account keeps its cache; another one replaces it in the core). No more background syncing.
+     */
     fun onSessionExpired() {
+        if (!_sessionExpired.compareAndSet(expect = false, update = true)) return
         viewModelScope.launch {
-            mutex.withLock {
-                // Already logged out (a second failing call, or the user's own logout): nothing to do.
-                if (_auth.value == AuthState.LoggedOut) return@withLock
-                container.terms.clear()
-                runIo { container.client(container.settings.baseUrl)?.logout(revoke = false) }
-                _login.update { it.copy(busy = false, error = ErrorKind.SESSION_EXPIRED, warnings = emptyList()) }
-                _auth.value = AuthState.LoggedOut
+            runIo(onError = {}) {
+                SyncScheduler.cancelAll(container.appContext)
+                container.syncStore.setExpired(true)
+                // After cancelAll: the redraw schedules the next boundary again, the stale chips still need it.
+                TimetableWidget().updateAll(container.appContext)
             }
         }
+    }
+
+    /** "Zaloguj ponownie": the login screen with the university of the expired session still selected. */
+    fun relogin() {
+        dispatch(LoginEvent.SessionExpired)
+        _auth.value = AuthState.LoggedOut
     }
 
     /**
@@ -203,7 +303,7 @@ class AuthViewModel(private val container: AppContainer) : ViewModel() {
      * kind through [onError] (the login screen by default), and returns null.
      */
     private suspend fun <T> runIo(
-        onError: (ErrorKind) -> Unit = { kind -> _login.update { it.copy(busy = false, error = kind) } },
+        onError: (ErrorKind) -> Unit = { kind -> dispatch(LoginEvent.BeginFailed(kind)) },
         block: suspend () -> T,
     ): T? = try {
         withContext(Dispatchers.IO) { block() }

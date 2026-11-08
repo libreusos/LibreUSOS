@@ -6,6 +6,7 @@ import io.gitlab.voxix.libreusos.data.ConsumerKeyStore
 import io.gitlab.voxix.libreusos.data.KeystoreTokenStore
 import io.gitlab.voxix.libreusos.data.PendingLoginStore
 import io.gitlab.voxix.libreusos.data.SecretCodec
+import io.gitlab.voxix.libreusos.data.SyncStore
 import io.gitlab.voxix.libreusos.data.TermsRepository
 import io.gitlab.voxix.libreusos.security.AesGcmBox
 import io.gitlab.voxix.libreusos.security.KeystoreKey
@@ -17,6 +18,9 @@ class AppContainer(context: Context) {
     val appContext: Context = context.applicationContext
 
     val settings = AppSettings(appContext)
+
+    /** When the data was last fetched, and the automatic retry after a failure. */
+    val syncStore = SyncStore(appContext)
 
     private val box = AesGcmBox { KeystoreKey.getOrCreate(KEY_ALIAS) }
     private val secretsDir = java.io.File(appContext.filesDir, "secrets")

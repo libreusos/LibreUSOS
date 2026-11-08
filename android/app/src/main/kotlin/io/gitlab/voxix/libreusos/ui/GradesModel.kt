@@ -1,11 +1,15 @@
 package io.gitlab.voxix.libreusos.ui
 
 import io.gitlab.voxix.libreusos.data.pick
+import io.gitlab.voxix.libreusos.ui.theme.KindCode
+import io.gitlab.voxix.libreusos.ui.theme.kindCodeOf
 import org.libreusos.core.CourseGrades
 import org.libreusos.core.Grade
 import org.libreusos.core.Term
 import org.libreusos.core.TermGrades
 import java.text.Collator
+import java.time.LocalDate
+import java.time.LocalDateTime
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
@@ -28,55 +32,26 @@ fun gradeReports(grades: List<Grade>): List<List<Grade>> {
     return reports.values.map { report -> report.sortedBy { it.session } }
 }
 
-/** The latest session of each exam report. */
-fun latestPerReport(grades: List<Grade>): List<Grade> = gradeReports(grades).map { it.last() }
-
-/**
- * The outcome of a course. With course-level grades, take the latest session of each exam report:
- * PASS if any report passes, FAIL if every report fails, else UNKNOWN. Without them, look at the
- * units (each unit's latest session): FAIL if any unit fails, PASS if all pass, else UNKNOWN.
- */
-fun courseOutcome(course: CourseGrades): Outcome {
-    if (course.grades.isNotEmpty()) {
-        val latest = latestPerReport(course.grades).map(::outcomeOf)
-        return when {
-            Outcome.PASS in latest -> Outcome.PASS
-            latest.all { it == Outcome.FAIL } -> Outcome.FAIL
-            else -> Outcome.UNKNOWN
-        }
-    }
-    val units = course.units.mapNotNull { u -> u.grades.maxByOrNull { it.session }?.let(::outcomeOf) }
-    return when {
-        units.isEmpty() -> Outcome.UNKNOWN
-        Outcome.FAIL in units -> Outcome.FAIL
-        units.all { it == Outcome.PASS } -> Outcome.PASS
-        else -> Outcome.UNKNOWN
-    }
+/** A term with its courses: the ones that have a grade or are among the user's course editions. */
+data class TermSection(val termId: String, val term: Term?, val grades: TermGrades) {
+    /** False while no course of the term has a grade yet (the empty state of the screen). */
+    val hasGrades: Boolean get() = grades.courses.any(::hasAnyGrade)
 }
-
-/** A term that has graded courses, with the term record when the terms list knows it. */
-data class TermSection(val termId: String, val term: Term?, val grades: TermGrades)
 
 /** True when the course has a grade at course level or in any unit. */
 fun hasAnyGrade(course: CourseGrades): Boolean = course.grades.isNotEmpty() || course.units.any { it.grades.isNotEmpty() }
 
-/**
- * Sections for the terms that have at least one graded course, newest term first (by start date,
- * then end date, then id). Terms missing from [terms] come last, newest id first. A term that
- * appears twice in [grades] keeps its first entry.
- */
+/** A course is listed when it has a grade or a name (USOS leaves the name empty for courses outside the user's editions). */
+fun isListed(course: CourseGrades): Boolean =
+    hasAnyGrade(course) || !course.name.pl.isNullOrBlank() || !course.name.en.isNullOrBlank()
+
+/** One section per term that has at least one listed course. A term that appears twice in [grades] keeps its first entry. */
 fun buildSections(terms: List<Term>, grades: List<TermGrades>): List<TermSection> {
     val byId = terms.associateBy { it.id }
     return grades
         .distinctBy { it.termId }
-        .filter { g -> g.courses.any(::hasAnyGrade) }
+        .filter { g -> g.courses.any(::isListed) }
         .map { TermSection(it.termId, byId[it.termId], it) }
-        .sortedWith(
-            compareBy<TermSection> { it.term == null }
-                .thenByDescending { it.term?.startDate.orEmpty() }
-                .thenByDescending { it.term?.endDate.orEmpty() }
-                .thenByDescending { it.termId },
-        )
 }
 
 private val collators = ConcurrentHashMap<String, Collator>()
@@ -84,41 +59,58 @@ private val collators = ConcurrentHashMap<String, Collator>()
 /** The collator of [lang], created once: it sorts Polish diacritics where a plain string compare would not. */
 fun collatorFor(lang: String): Collator = collators.getOrPut(lang) { Collator.getInstance(Locale(lang)) }
 
-/** One line of the list: a term header or a course. Keys are unique and stable. */
-sealed interface GradesRow {
-    val key: String
-
-    data class Header(
-        override val key: String,
-        val title: String,
-        val average: Double?,
-        val weightedAverage: Double?,
-    ) : GradesRow
-
-    data class Course(override val key: String, val course: CourseGrades, val name: String) : GradesRow
-}
+/** The grade a course tile shows and, after a retake, the first sitting it replaced. */
+data class FinalGrade(val grade: Grade, val earlier: Grade?)
 
 /**
- * Flattens [sections] into rows for a lazy list. Only graded courses are listed, sorted by name with the collator of
- * [lang] (then id). The averages are the core's; nothing is computed here.
+ * The final grade of a course: the latest session of the exam report that passes (the last one when
+ * several do), else of the last report. [FinalGrade.earlier] is the first sitting of that report when
+ * the shown one is a later session. Null while the course has no course-level grade.
  */
-fun buildRows(sections: List<TermSection>, lang: String): List<GradesRow> = buildList {
+fun finalGradeOf(course: CourseGrades): FinalGrade? {
+    val reports = gradeReports(course.grades)
+    val report = reports.lastOrNull { it.last().passes == true } ?: reports.lastOrNull() ?: return null
+    return FinalGrade(report.last(), report.first().takeIf { report.size > 1 })
+}
+
+/** One course of the list. */
+data class CourseRow(
+    val key: String,
+    val course: CourseGrades,
+    val name: String,
+    /** The class types of the units, one badge each. */
+    val kinds: List<KindCode>,
+    val final: FinalGrade?,
+    /** The one best final grade of the term (highlighted); false when several tie. */
+    val best: Boolean,
+)
+
+/**
+ * The rows of [section]: listed courses sorted by name with the collator of [lang] (then id). Grades are
+ * shown as USOS gives them; the only comparison made here is which final grade is the single best one.
+ */
+fun buildCourseRows(section: TermSection?, lang: String): List<CourseRow> {
+    section ?: return emptyList()
     val collator = collatorFor(lang)
-    for (section in sections) {
-        val title = section.term?.name?.pick(lang)?.ifBlank { null } ?: section.termId
-        add(
-            GradesRow.Header(
-                "term:${section.termId}",
-                title,
-                section.grades.average,
-                section.grades.weightedAverage,
-            ),
+    val named = section.grades.courses
+        .filter(::isListed)
+        .map { it to it.name.pick(lang) }
+        .sortedWith(Comparator<Pair<CourseGrades, String>> { a, b -> collator.compare(a.second, b.second) }.thenBy { it.first.courseId })
+    val finals = named.map { (course, _) -> finalGradeOf(course) }
+    val values = finals.map { f -> f?.grade?.takeIf { it.passes != false }?.numericValue }
+    val top = values.filterNotNull().maxOrNull()
+    val bestIndex = top?.let { t -> values.indices.singleOrNull { values[it] == t } }
+    return named.mapIndexed { i, (course, name) ->
+        CourseRow(
+            key = "course:${section.termId}:${course.courseId}",
+            course = course,
+            name = name,
+            kinds = course.units
+                .map { kindCodeOf(it.classtypeId, it.classtypeName.pick(lang).ifBlank { null }) }
+                .distinctBy { it.code },
+            final = finals[i],
+            best = i == bestIndex,
         )
-        section.grades.courses
-            .filter(::hasAnyGrade)
-            .map { it to it.name.pick(lang) }
-            .sortedWith(Comparator<Pair<CourseGrades, String>> { a, b -> collator.compare(a.second, b.second) }.thenBy { it.first.courseId })
-            .forEach { (course, name) -> add(GradesRow.Course("course:${section.termId}:${course.courseId}", course, name)) }
     }
 }
 
@@ -134,3 +126,9 @@ fun sessionLabel(session: UInt): SessionLabel = when (session) {
     2u -> SessionLabel.Retake
     else -> SessionLabel.Later(session.toInt())
 }
+
+/** The day a grade was given: its acquisition date, else the last modification; null when USOS gave neither. */
+fun gradeDate(grade: Grade): LocalDate? =
+    listOf(grade.dateAcquisition, grade.dateModified).firstNotNullOfOrNull { s ->
+        s?.let { runCatching { LocalDateTime.parse(it).toLocalDate() }.getOrNull() }
+    }

@@ -10,10 +10,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-/** The clock was set: redraw, and time the boundary refresh again (its delay was computed on the old clock). */
+/** The clock, the time zone or the date changed: redraw, and time the boundary refresh again (its delay was computed on the old clock). */
 class TimeChangedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_TIME_CHANGED) return
+        if (intent.action !in HANDLED) return
         val app = context.applicationContext
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
@@ -27,5 +27,9 @@ class TimeChangedReceiver : BroadcastReceiver() {
                 pending.finish()
             }
         }
+    }
+
+    private companion object {
+        val HANDLED = setOf(Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED, Intent.ACTION_DATE_CHANGED)
     }
 }

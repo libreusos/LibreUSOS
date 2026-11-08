@@ -1,26 +1,21 @@
 package io.gitlab.voxix.libreusos.ui
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Tab as TabItem
 import androidx.compose.material3.Text
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
@@ -28,10 +23,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -41,13 +37,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import io.gitlab.voxix.libreusos.AppContainer
 import io.gitlab.voxix.libreusos.R
+import org.libreusos.core.Activity
+import io.gitlab.voxix.libreusos.ui.theme.LibreUsosTheme
 
 private const val ROUTE_LOGIN = "login"
 private const val ROUTE_HOME = "main"
 
 @Composable
 fun App(authViewModel: AuthViewModel, container: AppContainer, requestedTab: String?, onTabHandled: () -> Unit) {
-    LibreUsosTheme {
+    val appearance by container.settings.appearance.collectAsStateWithLifecycle()
+    LibreUsosTheme(appearance.themeMode, appearance.dynamicColor) {
         Surface(Modifier.fillMaxSize()) {
             val auth by authViewModel.auth.collectAsStateWithLifecycle()
             if (auth == AuthState.Loading) {
@@ -74,10 +73,17 @@ private fun AppNavigation(
             val state by authViewModel.login.collectAsStateWithLifecycle()
             LoginScreen(
                 state = state,
-                onBaseUrlChange = authViewModel::onBaseUrlChange,
-                onConsumerKeyChange = authViewModel::onConsumerKeyChange,
-                onConsumerSecretChange = authViewModel::onConsumerSecretChange,
-                onLogin = authViewModel::login,
+                callbacks = LoginCallbacks(
+                    onBaseUrlChange = authViewModel::onBaseUrlChange,
+                    onConsumerKeyChange = authViewModel::onConsumerKeyChange,
+                    onConsumerSecretChange = authViewModel::onConsumerSecretChange,
+                    onLoginKnown = authViewModel::loginKnown,
+                    onLogin = authViewModel::login,
+                    onOpenOther = authViewModel::openOtherUniversity,
+                    onChooseUniversity = authViewModel::chooseUniversity,
+                    onAbandon = authViewModel::abandon,
+                    onReopenPage = authViewModel::reopenPage,
+                ),
             )
         }
         composable(ROUTE_HOME) { MainShell(authViewModel, container, requestedTab, onTabHandled) }
@@ -93,19 +99,13 @@ private fun AppNavigation(
     }
 }
 
-private const val TAB_TODAY = "today"
+/** Route the widget asks for (see MainActivity). */
 const val TAB_TIMETABLE = "timetable"
-private const val TAB_GRADES = "grades"
 
-private class Tab(val route: String, val icon: ImageVector, @StringRes val label: Int)
-
-private val tabs = listOf(
-    Tab(TAB_TODAY, Icons.Filled.Home, R.string.nav_today),
-    Tab(TAB_TIMETABLE, Icons.Filled.DateRange, R.string.nav_timetable),
-    Tab(TAB_GRADES, Icons.Filled.Star, R.string.nav_grades),
-)
-
-/** The logged-in app: a bottom navigation bar over the Today, Timetable and Grades screens. */
+/**
+ * The logged-in app: one NavHost with the four tabs and the drill-down screens. The bottom bar shows on
+ * the tabs only.
+ */
 @Composable
 private fun MainShell(
     authViewModel: AuthViewModel,
@@ -125,7 +125,7 @@ private fun MainShell(
         if (requestedTab == TAB_TIMETABLE) selectTab(TAB_TIMETABLE)
         if (requestedTab != null) onTabHandled()
     }
-    // Created here, so both live as long as the logged-in session and survive tab switches.
+    // Created here, so they live as long as the logged-in session and survive tab switches.
     val homeViewModel: HomeViewModel = viewModel(
         factory = viewModelFactory { initializer { HomeViewModel(container, authViewModel::onSessionExpired) } },
     )
@@ -138,47 +138,129 @@ private fun MainShell(
     val testsViewModel: TestsViewModel = viewModel(
         factory = viewModelFactory { initializer { TestsViewModel(container, authViewModel::onSessionExpired) } },
     )
+    val accountViewModel: AccountViewModel = viewModel(
+        factory = viewModelFactory { initializer { AccountViewModel(container) } },
+    )
+    val settingsViewModel: SettingsViewModel = viewModel(
+        factory = viewModelFactory { initializer { SettingsViewModel(container) } },
+    )
+    val account by accountViewModel.state.collectAsStateWithLifecycle()
+    val logoutError by authViewModel.homeError.collectAsStateWithLifecycle()
+
+    var accountSheet by rememberSaveable { mutableStateOf(false) }
+    var pendingAction by rememberSaveable { mutableStateOf<AccountAction?>(null) }
+
+    val openClass = { activity: Activity ->
+        timetableViewModel.showClass(activity)
+        tabController.navigate(ROUTE_CLASS)
+    }
+    val route = tabController.currentBackStackEntryAsState().value?.destination?.route
     Scaffold(
-        bottomBar = {
-            NavigationBar {
-                val current = tabController.currentBackStackEntryAsState().value?.destination
-                tabs.forEach { tab ->
-                    NavigationBarItem(
-                        selected = current?.hierarchy?.any { it.route == tab.route } == true,
-                        onClick = { selectTab(tab.route) },
-                        icon = { Icon(tab.icon, contentDescription = null) },
-                        label = { Text(stringResource(tab.label)) },
-                    )
-                }
-            }
-        },
+        bottomBar = { if (MainTab.showsBottomBar(route)) MainNavigationBar(route, ::selectTab) },
     ) { padding ->
         // The padding already covers the system bars; screens must not add them again.
         NavHost(
             tabController,
-            startDestination = TAB_TODAY,
+            startDestination = MainTab.Today.route,
             modifier = Modifier.padding(padding).consumeWindowInsets(padding),
         ) {
-            composable(TAB_TODAY) {
-                val state by homeViewModel.state.collectAsStateWithLifecycle()
-                val logoutError by authViewModel.homeError.collectAsStateWithLifecycle()
-                HomeScreen(state, logoutError, onRefresh = homeViewModel::refresh, onLogout = authViewModel::logout)
+            composable(MainTab.Today.route) {
+                val sessionExpired by authViewModel.sessionExpired.collectAsStateWithLifecycle()
+                HomeScreen(
+                    homeViewModel,
+                    sessionExpired,
+                    onRelogin = authViewModel::relogin,
+                    onOpenTimetable = { selectTab(MainTab.Timetable.route) },
+                    onOpenClass = openClass,
+                )
             }
-            composable(TAB_TIMETABLE) { TimetableScreen(timetableViewModel) }
-            composable(TAB_GRADES) { GradesTab(gradesViewModel, testsViewModel) }
+            composable(MainTab.Timetable.route) {
+                val sessionExpired by authViewModel.sessionExpired.collectAsStateWithLifecycle()
+                TimetableScreen(
+                    timetableViewModel,
+                    sessionExpired,
+                    onRelogin = authViewModel::relogin,
+                    onOpenClass = openClass,
+                )
+            }
+            composable(ROUTE_CLASS) { ClassDetailScreen(timetableViewModel, onBack = { tabController.popBackStack() }) }
+            composable(MainTab.Grades.route) {
+                val sessionExpired by authViewModel.sessionExpired.collectAsStateWithLifecycle()
+                GradesTab(
+                    gradesViewModel,
+                    testsViewModel,
+                    sessionExpired,
+                    onRelogin = authViewModel::relogin,
+                    onOpenCourse = { termId, course ->
+                        gradesViewModel.showCourse(termId, course)
+                        tabController.navigate(ROUTE_GRADE)
+                    },
+                )
+            }
+            composable(ROUTE_GRADE) { GradeDetailScreen(gradesViewModel, onBack = { tabController.popBackStack() }) }
+            composable(MainTab.More.route) {
+                MoreScreen(account, onOpenAccount = { accountSheet = true }, onOpenSettings = { tabController.navigate(ROUTE_SETTINGS) })
+            }
+            composable(ROUTE_SETTINGS) {
+                SettingsScreen(
+                    settingsViewModel,
+                    account,
+                    onBack = { tabController.popBackStack() },
+                    onOpenLicences = { tabController.navigate(ROUTE_LICENCES) },
+                    onAccountAction = { pendingAction = it },
+                )
+            }
+            composable(ROUTE_LICENCES) { LicencesScreen(onBack = { tabController.popBackStack() }) }
         }
+    }
+
+    if (accountSheet) {
+        AccountSheet(
+            account,
+            onAction = {
+                accountSheet = false
+                pendingAction = it
+            },
+            onDismiss = { accountSheet = false },
+        )
+    }
+    logoutError?.let { error ->
+        AlertDialog(
+            onDismissRequest = authViewModel::dismissLogoutError,
+            title = { Text(stringResource(R.string.logout_failed_title)) },
+            text = { Text(stringResource(error.messageRes)) },
+            confirmButton = { TextButton(authViewModel::dismissLogoutError) { Text(stringResource(R.string.action_ok)) } },
+        )
+    }
+    pendingAction?.let { action ->
+        ConfirmAccountActionDialog(
+            action,
+            onConfirm = {
+                pendingAction = null
+                // Both actions end at the login screen, which keeps the current server preselected.
+                authViewModel.logout()
+            },
+            onDismiss = { pendingAction = null },
+        )
     }
 }
 
-/** The Grades tab: a segmented top row switches between the grades and the course tests. */
 @Composable
-private fun GradesTab(gradesViewModel: GradesViewModel, testsViewModel: TestsViewModel) {
-    var selected by rememberSaveable { mutableIntStateOf(0) }
-    Column(Modifier.fillMaxSize()) {
-        PrimaryTabRow(selectedTabIndex = selected) {
-            TabItem(selected == 0, onClick = { selected = 0 }, text = { Text(stringResource(R.string.nav_grades)) })
-            TabItem(selected == 1, onClick = { selected = 1 }, text = { Text(stringResource(R.string.grades_tab_tests)) })
+private fun MainNavigationBar(route: String?, onSelect: (String) -> Unit) {
+    NavigationBar {
+        MainTab.entries.forEach { tab ->
+            val selected = tab.route == route
+            NavigationBarItem(
+                selected = selected,
+                onClick = { onSelect(tab.route) },
+                icon = { Icon(painterResource(if (selected) tab.iconFilled else tab.icon), contentDescription = null) },
+                label = {
+                    Text(
+                        stringResource(tab.label),
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium),
+                    )
+                },
+            )
         }
-        if (selected == 0) GradesScreen(gradesViewModel, Modifier.weight(1f)) else TestsScreen(testsViewModel, Modifier.weight(1f))
     }
 }

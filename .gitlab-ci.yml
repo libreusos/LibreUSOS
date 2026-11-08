@@ -1,5 +1,5 @@
 # Release builds: tag pipelines (with release) and manual "Run pipeline" (build only).
-# The build logic is in ci/*.sh; variables are listed at https://gitlab.com/voxix/LibreUSOS/-/wikis/Releasing.
+# The build logic is in ci/*.sh; variables are listed at https://gitlab.com/libreusos/LibreUSOS/-/wikis/Releasing.
 
 workflow:
   rules:

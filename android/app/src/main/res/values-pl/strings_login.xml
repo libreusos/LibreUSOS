@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Sign-in and onboarding (SYSTEM.md sections 11, 12, 14) -->
+    <string name="onboarding_universities_title">Wybierz uczelnię</string>
+    <string name="onboarding_universities_body">LibreUSOS łączy się bezpośrednio z USOS Twojej uczelni. Hasło wpisujesz tylko na stronie uczelni.</string>
+    <string name="onboarding_key_embedded">Klucz wbudowany</string>
+    <string name="onboarding_key_required">Wymaga własnego klucza</string>
+    <string name="onboarding_other_link">Nie ma uczelni na liście? Podaj adres USOS API</string>
+    <string name="onboarding_sign_in_with">Zaloguj przez USOS · %1$s</string>
+    <string name="onboarding_logo_description">LibreUSOS</string>
+
+    <string name="onboarding_other_title">Inna uczelnia</string>
+    <string name="onboarding_other_body">Podaj adres USOS API swojej uczelni. Jeśli uczelnia nie ma jeszcze klucza dla LibreUSOS, wygenerujesz go sam w 2 minuty.</string>
+    <string name="onboarding_url_label">Adres USOS API</string>
+    <string name="onboarding_url_error_no_api">Pod tym adresem nie ma USOS API. Adres zwykle zaczyna się od usosapi., usosapps. lub apps.usos.</string>
+    <string name="onboarding_url_error_invalid">To nie wygląda na adres. Wpisz go w całości, na przykład https://usosapi.uczelnia.pl/</string>
+    <string name="onboarding_url_error_https">Adres musi zaczynać się od https://</string>
+    <string name="onboarding_key_section">Klucz aplikacji</string>
+    <string name="onboarding_consumer_key">Consumer key</string>
+    <string name="onboarding_consumer_secret">Consumer secret</string>
+    <string name="onboarding_secret_note">Zapisany zaszyfrowany kluczem z Android Keystore. Nie opuszcza telefonu.</string>
+    <string name="onboarding_key_rejected">USOS odrzucił ten klucz. Sprawdź consumer key i consumer secret.</string>
+    <string name="onboarding_generate_key">Wygeneruj klucz na stronie uczelni</string>
+    <string name="onboarding_show_secret">Pokaż consumer secret</string>
+    <string name="onboarding_hide_secret">Ukryj consumer secret</string>
+    <string name="onboarding_submit_other">Sprawdź i zaloguj</string>
+    <string name="onboarding_hint_fix_url">Najpierw popraw adres USOS API</string>
+    <string name="onboarding_hint_fill_in">Uzupełnij adres, consumer key i consumer secret</string>
+    <string name="onboarding_logout_warnings">Wylogowano, ale nie wszystko się udało:</string>
+
+    <string name="onboarding_waiting_title">Dokończ logowanie w przeglądarce</string>
+    <string name="onboarding_waiting_body">Otworzyliśmy stronę logowania uczelni (%1$s). Po zatwierdzeniu wrócisz tu automatycznie.</string>
+    <string name="onboarding_step_1_title">Zaloguj się kontem uczelnianym</string>
+    <string name="onboarding_step_2_title">Zezwól LibreUSOS na dostęp</string>
+    <string name="onboarding_step_2_body">Plan, oceny, sprawdziany, adres e-mail</string>
+    <string name="onboarding_step_3_title">Wróć do aplikacji</string>
+    <string name="onboarding_step_3_body">Pierwsza synchronizacja trwa ok. 10 s</string>
+    <string name="onboarding_progress_waiting">Czekam na odpowiedź z USOS…</string>
+    <string name="onboarding_progress_exchanging">Kończę logowanie…</string>
+    <string name="onboarding_progress_syncing">Pierwsza synchronizacja: pobieram plan i oceny…</string>
+    <string name="onboarding_step_done">Gotowe</string>
+    <string name="onboarding_step_current">W toku</string>
+    <string name="onboarding_reopen_page">Otwórz stronę ponownie</string>
+
+    <string name="onboarding_retry">Zaloguj ponownie</string>
+    <string name="onboarding_choose_other">Wybierz inną uczelnię</string>
+    <string name="onboarding_cancelled_title">Logowanie przerwane</string>
+    <string name="onboarding_cancelled_body">Zamknięto kartę przeglądarki przed zatwierdzeniem. Nic nie zostało zapisane.</string>
+    <string name="onboarding_timeout_title">Brak odpowiedzi z USOS</string>
+    <string name="onboarding_timeout_body">Minęło 10 minut bez potwierdzenia. Zacznij logowanie od nowa.</string>
+    <string name="onboarding_denied_title">Nie udzielono dostępu</string>
+    <string name="onboarding_denied_body">Na stronie uczelni wybrano „Odmów”. Bez zgody LibreUSOS nie może pobrać planu ani ocen.</string>
+    <string name="onboarding_failed_title">Nie udało się zalogować</string>
+    <string name="onboarding_failed_body">Logowanie nie zostało dokończone. Sprawdź połączenie i spróbuj ponownie. Nic nie zostało zapisane.</string>
+    <string name="onboarding_details">Szczegóły</string>
+</resources>
