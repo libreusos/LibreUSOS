@@ -41,6 +41,8 @@ zeroize.workspace = true
 # falls back to a 0600 file. Pure-Rust Secret Service (zbus), no libdbus/openssl.
 [target.'cfg(target_os = "linux")'.dependencies]
 keyring = { version = "3.6", default-features = false, features = ["async-secret-service", "crypto-rust"] }
+# Only to recognize "no Secret Service in this session" in keyring errors; same version as keyring's.
+secret-service = { version = "4", default-features = false }
 
 [target.'cfg(target_os = "android")'.dependencies]
 webpki-root-certs = "1"

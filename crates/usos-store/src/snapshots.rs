@@ -5,15 +5,15 @@
 //! edge stays free of generics and can be wrapped by UniFFI. The generic code is private.
 
 use chrono::{DateTime, Utc};
-use rusqlite::{OptionalExtension, TransactionBehavior, params};
+use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use sha2::{Digest, Sha256};
 use usos_core::crstests::CourseTests;
 use usos_core::{Term, TermGrades, User};
 
-use crate::error::Result;
-use crate::store::{Store, parse_ts, ts};
+use crate::error::{Result, StoreError};
+use crate::store::{Store, active_key, ensure_active, parse_ts, read_epoch, ts};
 
 const TERMS: &str = "terms";
 const USER: &str = "user";
@@ -60,8 +60,44 @@ fn hash_hex(json: &str) -> String {
         .collect()
 }
 
+/// Upsert one snapshot row inside the caller's transaction.
+fn write_snapshot(
+    conn: &Connection,
+    account: &str,
+    kind: &str,
+    key: &str,
+    json: &str,
+) -> Result<PutOutcome> {
+    let hash = hash_hex(json);
+    let previous: Option<(String, String)> = conn
+        .query_row(
+            "SELECT hash, fetched_at FROM snapshots WHERE account = ?1 AND kind = ?2 AND key = ?3",
+            params![account, kind, key],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()?;
+    conn.execute(
+        "INSERT INTO snapshots (account, kind, key, json, hash, fetched_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+         ON CONFLICT (account, kind, key) DO UPDATE SET
+             json = excluded.json, hash = excluded.hash, fetched_at = excluded.fetched_at",
+        params![account, kind, key, json, hash, ts(Utc::now())],
+    )?;
+    Ok(match previous {
+        None => PutOutcome {
+            changed: true,
+            previous_fetched_at: None,
+        },
+        Some((old_hash, at)) => PutOutcome {
+            changed: old_hash != hash,
+            previous_fetched_at: Some(parse_ts(&at)?),
+        },
+    })
+}
+
 impl Store {
-    /// Store `value` as the snapshot `(account, kind, key)`. The hash is that of the JSON text,
+    /// Store `value` as the snapshot `(account, kind, key)`; with `only_if_active`, only while
+    /// `account` is active (see [`ensure_active`]). The hash is that of the JSON text,
     /// which is deterministic because the models contain no unordered maps. `fetched_at` is
     /// refreshed even when nothing changed ("checked now").
     fn put_snapshot<T: Serialize>(
@@ -70,36 +106,45 @@ impl Store {
         kind: &str,
         key: &str,
         value: &T,
+        only_if_active: bool,
     ) -> Result<PutOutcome> {
         let json = serde_json::to_string(value)?;
-        let hash = hash_hex(&json);
         let mut conn = self.lock();
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let previous: Option<(String, String)> = tx
-            .query_row(
-                "SELECT hash, fetched_at FROM snapshots WHERE account = ?1 AND kind = ?2 AND key = ?3",
-                params![account, kind, key],
-                |r| Ok((r.get(0)?, r.get(1)?)),
-            )
-            .optional()?;
+        if only_if_active {
+            ensure_active(&tx, account)?;
+        }
+        let outcome = write_snapshot(&tx, account, kind, key, &json)?;
+        tx.commit()?;
+        Ok(outcome)
+    }
+
+    /// Cache `user` for `account` and make `account` the active one of `base_url`, in one
+    /// transaction. With `epoch` (read by [`Store::session_epoch`] before the fetch), fails with
+    /// [`StoreError::LoggedOut`] if a logout of `base_url` happened since.
+    pub(crate) fn remember_user(
+        &self,
+        base_url: &str,
+        account: &str,
+        user: &User,
+        epoch: Option<u64>,
+    ) -> Result<PutOutcome> {
+        let json = serde_json::to_string(user)?;
+        let mut conn = self.lock();
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(epoch) = epoch
+            && read_epoch(&tx, base_url)? != epoch
+        {
+            return Err(StoreError::LoggedOut);
+        }
+        let outcome = write_snapshot(&tx, account, USER, "", &json)?;
         tx.execute(
-            "INSERT INTO snapshots (account, kind, key, json, hash, fetched_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-             ON CONFLICT (account, kind, key) DO UPDATE SET
-                 json = excluded.json, hash = excluded.hash, fetched_at = excluded.fetched_at",
-            params![account, kind, key, json, hash, ts(Utc::now())],
+            "INSERT INTO meta (key, value) VALUES (?1, ?2)
+             ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+            params![active_key(base_url), account],
         )?;
         tx.commit()?;
-        Ok(match previous {
-            None => PutOutcome {
-                changed: true,
-                previous_fetched_at: None,
-            },
-            Some((old_hash, at)) => PutOutcome {
-                changed: old_hash != hash,
-                previous_fetched_at: Some(parse_ts(&at)?),
-            },
-        })
+        Ok(outcome)
     }
 
     /// The snapshot, or `None` when missing or when it no longer deserializes (written by an
@@ -129,7 +174,12 @@ impl Store {
 
     /// The user's terms.
     pub fn put_terms(&self, account: &str, terms: &[Term]) -> Result<PutOutcome> {
-        self.put_snapshot(account, TERMS, "", &terms)
+        self.put_snapshot(account, TERMS, "", &terms, false)
+    }
+
+    /// [`Store::put_terms`], only while `account` is active.
+    pub(crate) fn put_terms_if_active(&self, account: &str, terms: &[Term]) -> Result<PutOutcome> {
+        self.put_snapshot(account, TERMS, "", &terms, true)
     }
 
     pub fn get_terms(&self, account: &str) -> Result<Option<CachedTerms>> {
@@ -139,7 +189,7 @@ impl Store {
     }
 
     pub fn put_user(&self, account: &str, user: &User) -> Result<PutOutcome> {
-        self.put_snapshot(account, USER, "", user)
+        self.put_snapshot(account, USER, "", user, false)
     }
 
     pub fn get_user(&self, account: &str) -> Result<Option<CachedUser>> {
@@ -155,7 +205,17 @@ impl Store {
         term_id: &str,
         grades: &TermGrades,
     ) -> Result<PutOutcome> {
-        self.put_snapshot(account, GRADES, term_id, grades)
+        self.put_snapshot(account, GRADES, term_id, grades, false)
+    }
+
+    /// [`Store::put_term_grades`], only while `account` is active.
+    pub(crate) fn put_term_grades_if_active(
+        &self,
+        account: &str,
+        term_id: &str,
+        grades: &TermGrades,
+    ) -> Result<PutOutcome> {
+        self.put_snapshot(account, GRADES, term_id, grades, true)
     }
 
     pub fn get_term_grades(
@@ -175,7 +235,17 @@ impl Store {
         term_id: &str,
         tests: &CourseTests,
     ) -> Result<PutOutcome> {
-        self.put_snapshot(account, TESTS, term_id, tests)
+        self.put_snapshot(account, TESTS, term_id, tests, false)
+    }
+
+    /// [`Store::put_course_tests`], only while `account` is active.
+    pub(crate) fn put_course_tests_if_active(
+        &self,
+        account: &str,
+        term_id: &str,
+        tests: &CourseTests,
+    ) -> Result<PutOutcome> {
+        self.put_snapshot(account, TESTS, term_id, tests, true)
     }
 
     pub fn get_course_tests(

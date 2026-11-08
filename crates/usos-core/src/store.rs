@@ -14,6 +14,7 @@ use std::fmt;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
@@ -57,6 +58,9 @@ pub enum StoreError {
     /// A failure reported by a host-provided [`TokenStore`] (never put a secret in it).
     #[error("token store: {0}")]
     Other(String),
+    /// The system keyring failed in a way that would leave a token behind.
+    #[error("system keyring: {0}")]
+    Keyring(String),
 }
 
 pub type StoreResult<T> = std::result::Result<T, StoreError>;
@@ -137,27 +141,56 @@ fn default_dir() -> Result<PathBuf> {
         .join("libreusos"))
 }
 
+/// The keyring calls [`KeyringFileStore`] makes; a trait so tests can use a fake keyring.
+trait Keyring: fmt::Debug + Send + Sync {
+    fn save(&self, base_url: &str, token: &AccessToken) -> std::result::Result<(), String>;
+    /// `None` when there is no entry or it cannot be read.
+    fn load(&self, base_url: &str) -> Option<AccessToken>;
+    /// Delete the entry. A missing entry, or no keyring service in this session, is success.
+    fn delete(&self, base_url: &str) -> std::result::Result<(), String>;
+}
+
+#[derive(Debug)]
+struct SystemKeyring;
+
+impl Keyring for SystemKeyring {
+    fn save(&self, base_url: &str, token: &AccessToken) -> std::result::Result<(), String> {
+        keyring_save(base_url, token)
+    }
+    fn load(&self, base_url: &str) -> Option<AccessToken> {
+        keyring_load(base_url)
+    }
+    fn delete(&self, base_url: &str) -> std::result::Result<(), String> {
+        keyring_delete(base_url)
+    }
+}
+
 /// The default [`TokenStore`]: the system keyring, with a 0600 credentials file as fallback.
 #[derive(Debug, Clone)]
 pub struct KeyringFileStore {
     dir: PathBuf,
-    use_keyring: bool,
+    keyring: Option<Arc<dyn Keyring>>,
 }
 
 impl KeyringFileStore {
     /// The default store: `<config dir>/libreusos`, keyring enabled.
     pub fn new() -> Result<Self> {
-        Ok(Self {
-            dir: default_dir()?,
-            use_keyring: true,
-        })
+        Ok(Self::with_dir(default_dir()?, true))
     }
 
     /// A store in `dir`; `use_keyring = false` forces the file backend (used by tests).
     pub fn with_dir(dir: impl Into<PathBuf>, use_keyring: bool) -> Self {
         Self {
             dir: dir.into(),
-            use_keyring,
+            keyring: use_keyring.then(|| Arc::new(SystemKeyring) as Arc<dyn Keyring>),
+        }
+    }
+
+    #[cfg(test)]
+    fn with_keyring(dir: impl Into<PathBuf>, keyring: Arc<dyn Keyring>) -> Self {
+        Self {
+            dir: dir.into(),
+            keyring: Some(keyring),
         }
     }
 
@@ -176,51 +209,72 @@ impl KeyringFileStore {
 
     // ---- tokens ----------------------------------------------------------
 
-    /// Store `token` for `base_url`. Tries the keyring first, then the file.
+    /// Store `token` for `base_url`. Tries the keyring first, then the file. Whichever backend
+    /// gets the token, the other one must not keep an older token that `load` could return.
     fn save_token(&self, base_url: &str, token: &AccessToken) -> Result<SaveOutcome> {
-        let keyring_error = if self.use_keyring {
-            match keyring_save(base_url, token) {
-                Ok(()) => {
-                    // Do not leave a stale copy in the file.
-                    let cleanup_warning = self
-                        .file_remove(base_url)
-                        .err()
-                        .map(|e| format!("could not remove the old credentials file entry: {e}"));
-                    return Ok(SaveOutcome {
-                        backend: Backend::Keyring,
-                        keyring_error: None,
-                        cleanup_warning,
-                    });
-                }
-                Err(message) => Some(message),
-            }
-        } else {
-            None
+        let Some(keyring) = &self.keyring else {
+            self.file_save(base_url, token)?;
+            return Ok(SaveOutcome {
+                backend: Backend::File,
+                keyring_error: None,
+                cleanup_warning: None,
+            });
         };
-        self.file_save(base_url, token)?;
-        Ok(SaveOutcome {
-            backend: Backend::File,
-            keyring_error,
-            cleanup_warning: None,
-        })
+        match keyring.save(base_url, token) {
+            Ok(()) => {
+                // `load` prefers the keyring, so a stale file entry only matters if the keyring
+                // later becomes unreadable; a failure to remove it is a warning.
+                let cleanup_warning = self
+                    .file_remove(base_url)
+                    .err()
+                    .map(|e| format!("could not remove the old credentials file entry: {e}"));
+                Ok(SaveOutcome {
+                    backend: Backend::Keyring,
+                    keyring_error: None,
+                    cleanup_warning,
+                })
+            }
+            Err(keyring_error) => {
+                // `load` prefers the keyring: an older token left there would win over the
+                // new file token, so it has to go before the file is written.
+                keyring.delete(base_url).map_err(|e| {
+                    StoreError::Keyring(format!(
+                        "saving failed ({keyring_error}), and an older entry could not be \
+                         removed: {e}"
+                    ))
+                })?;
+                self.file_save(base_url, token)?;
+                Ok(SaveOutcome {
+                    backend: Backend::File,
+                    keyring_error: Some(keyring_error),
+                    cleanup_warning: None,
+                })
+            }
+        }
     }
 
     /// Load the token for `base_url` from the keyring, then the file.
     fn load_token(&self, base_url: &str) -> Result<Option<AccessToken>> {
-        if self.use_keyring
-            && let Some(token) = keyring_load(base_url)
+        if let Some(keyring) = &self.keyring
+            && let Some(token) = keyring.load(base_url)
         {
             return Ok(Some(token));
         }
         self.file_load(base_url)
     }
 
-    /// Delete the token for `base_url` from every backend. Missing entries are not an error.
+    /// Delete the token for `base_url` from every backend. Missing entries are not an error;
+    /// a keyring entry that could not be deleted is.
     fn delete_token(&self, base_url: &str) -> Result<()> {
-        if self.use_keyring {
-            keyring_delete(base_url);
-        }
-        self.file_remove(base_url)
+        let keyring = match &self.keyring {
+            Some(keyring) => keyring.delete(base_url).map_err(|e| {
+                StoreError::Keyring(format!("could not delete the stored token: {e}"))
+            }),
+            None => Ok(()),
+        };
+        // Remove the file copy even when the keyring failed.
+        self.file_remove(base_url)?;
+        keyring
     }
 
     fn read_credentials(&self) -> Result<CredentialsFile> {
@@ -391,9 +445,20 @@ fn keyring_load(base_url: &str) -> Option<AccessToken> {
 }
 
 #[cfg(target_os = "linux")]
-fn keyring_delete(base_url: &str) {
-    if let Ok(entry) = keyring::Entry::new(KEYRING_SERVICE, base_url) {
-        let _ = entry.delete_credential();
+fn keyring_delete(base_url: &str) -> std::result::Result<(), String> {
+    match keyring::Entry::new(KEYRING_SERVICE, base_url).and_then(|e| e.delete_credential()) {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        // No Secret Service reachable from this session (e.g. headless): nothing here can
+        // hold or read a keyring token, and saves go to the file.
+        Err(keyring::Error::PlatformFailure(e))
+            if matches!(
+                e.downcast_ref::<secret_service::Error>(),
+                Some(secret_service::Error::Unavailable)
+            ) =>
+        {
+            Ok(())
+        }
+        Err(e) => Err(e.to_string()),
     }
 }
 
@@ -408,7 +473,9 @@ fn keyring_load(_base_url: &str) -> Option<AccessToken> {
 }
 
 #[cfg(not(target_os = "linux"))]
-fn keyring_delete(_base_url: &str) {}
+fn keyring_delete(_base_url: &str) -> std::result::Result<(), String> {
+    Ok(())
+}
 
 #[cfg(test)]
 mod tests {
@@ -512,6 +579,135 @@ mod tests {
         assert_eq!(store.load(url).unwrap(), Some(token()));
         store.delete(url).unwrap();
         assert!(store.load(url).unwrap().is_none());
+    }
+
+    /// An in-memory keyring whose save and delete can be made to fail.
+    #[derive(Debug, Default)]
+    struct FakeKeyring {
+        tokens: std::sync::Mutex<BTreeMap<String, AccessToken>>,
+        fail_save: std::sync::atomic::AtomicBool,
+        fail_delete: std::sync::atomic::AtomicBool,
+    }
+
+    impl FakeKeyring {
+        fn set_failures(&self, save: bool, delete: bool) {
+            use std::sync::atomic::Ordering::SeqCst;
+            self.fail_save.store(save, SeqCst);
+            self.fail_delete.store(delete, SeqCst);
+        }
+        fn get(&self, base_url: &str) -> Option<AccessToken> {
+            self.tokens.lock().unwrap().get(base_url).cloned()
+        }
+    }
+
+    impl Keyring for FakeKeyring {
+        fn save(&self, base_url: &str, token: &AccessToken) -> std::result::Result<(), String> {
+            if self.fail_save.load(std::sync::atomic::Ordering::SeqCst) {
+                return Err("keyring locked".into());
+            }
+            self.tokens
+                .lock()
+                .unwrap()
+                .insert(base_url.to_owned(), token.clone());
+            Ok(())
+        }
+        fn load(&self, base_url: &str) -> Option<AccessToken> {
+            self.get(base_url)
+        }
+        fn delete(&self, base_url: &str) -> std::result::Result<(), String> {
+            if self.fail_delete.load(std::sync::atomic::Ordering::SeqCst) {
+                return Err("keyring locked".into());
+            }
+            self.tokens.lock().unwrap().remove(base_url);
+            Ok(())
+        }
+    }
+
+    fn other_token() -> AccessToken {
+        AccessToken {
+            token: Secret::new("tok2"),
+            secret: Secret::new("sec2"),
+        }
+    }
+
+    fn fake_store(tmp: &tempfile::TempDir) -> (KeyringFileStore, Arc<FakeKeyring>) {
+        let keyring = Arc::new(FakeKeyring::default());
+        let store = KeyringFileStore::with_keyring(tmp.path().join("libreusos"), keyring.clone());
+        (store, keyring)
+    }
+
+    #[test]
+    fn delete_reports_a_keyring_failure() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (store, keyring) = fake_store(&tmp);
+        // A missing entry is fine.
+        store.delete(URL).unwrap();
+
+        store.save(URL, &token()).unwrap();
+        keyring.set_failures(false, true);
+        let err = store.delete(URL).unwrap_err();
+        assert!(matches!(err, StoreError::Keyring(_)), "{err:?}");
+        assert_eq!(store.load(URL).unwrap(), Some(token()));
+
+        keyring.set_failures(false, false);
+        store.delete(URL).unwrap();
+        assert_eq!(store.load(URL).unwrap(), None);
+    }
+
+    #[test]
+    fn delete_removes_the_file_copy_even_if_the_keyring_fails() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (store, keyring) = fake_store(&tmp);
+        keyring.set_failures(true, false);
+        assert_eq!(store.save(URL, &token()).unwrap().backend, Backend::File);
+        keyring.set_failures(false, true);
+        assert!(store.delete(URL).is_err());
+        assert_eq!(store.file_load(URL).unwrap(), None);
+    }
+
+    #[test]
+    fn file_fallback_removes_an_older_keyring_token() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (store, keyring) = fake_store(&tmp);
+        assert_eq!(store.save(URL, &token()).unwrap().backend, Backend::Keyring);
+
+        keyring.set_failures(true, false);
+        let outcome = store.save(URL, &other_token()).unwrap();
+        assert_eq!(outcome.backend, Backend::File);
+        assert!(outcome.keyring_error.is_some());
+        assert_eq!(keyring.get(URL), None);
+        assert_eq!(store.load(URL).unwrap(), Some(other_token()));
+    }
+
+    #[test]
+    fn file_fallback_fails_if_the_older_keyring_token_stays() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (store, keyring) = fake_store(&tmp);
+        store.save(URL, &token()).unwrap();
+
+        keyring.set_failures(true, true);
+        let err = store.save(URL, &other_token()).unwrap_err();
+        assert!(matches!(err, StoreError::Keyring(_)), "{err:?}");
+        assert!(!err.to_string().contains("tok2") && !err.to_string().contains("sec2"));
+        // Nothing was written that `load` would not return.
+        assert_eq!(store.file_load(URL).unwrap(), None);
+        assert_eq!(store.load(URL).unwrap(), Some(token()));
+    }
+
+    #[test]
+    fn keyring_save_removes_the_file_copy() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (store, keyring) = fake_store(&tmp);
+        keyring.set_failures(true, false);
+        store.save(URL, &token()).unwrap();
+        assert_eq!(store.file_load(URL).unwrap(), Some(token()));
+
+        keyring.set_failures(false, false);
+        let outcome = store.save(URL, &other_token()).unwrap();
+        assert_eq!(outcome.backend, Backend::Keyring);
+        assert_eq!(outcome.cleanup_warning, None);
+        assert_eq!(store.file_load(URL).unwrap(), None);
+        assert_eq!(store.load(URL).unwrap(), Some(other_token()));
     }
 
     #[test]

@@ -4,13 +4,14 @@
 set -eu
 . "$(dirname "$0")/common.sh"
 
-apk add --no-cache curl >/dev/null
+apk add --no-cache curl jq >/dev/null
 API="$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases"
-ART="$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/dist"
+TAG_URI=$(jq -rn --arg t "$CI_COMMIT_TAG" '$t|@uri')
+ART="$CI_PROJECT_URL/-/jobs/artifacts/$TAG_URI/raw/dist"
 
 # call METHOD URL [JSON]: prints the body, then the HTTP status on the last line.
 call() {
-    curl -sS -X "$1" -H "JOB-TOKEN: $CI_JOB_TOKEN" -H 'Content-Type: application/json' \
+    curl -sS --globoff -X "$1" -H "JOB-TOKEN: $CI_JOB_TOKEN" -H 'Content-Type: application/json' \
         -w '\n%{http_code}' ${3:+--data "$3"} "$2"
 }
 
@@ -21,9 +22,9 @@ L1=$(link "usos CLI, Linux x86_64 (static)" "usos-$VERSION-x86_64-linux.tar.gz" 
 L2=$(link "usos CLI, Windows x86_64" "usos-$VERSION-x86_64-windows.zip" build-windows)
 L3=$(link "LibreUSOS for Android (APK)" "libreusos-$VERSION.apk" build-android)
 
-if [ "$(call GET "$API/$CI_COMMIT_TAG" | tail -n 1)" = 200 ]; then
+if [ "$(call GET "$API/$TAG_URI" | tail -n 1)" = 200 ]; then
     for l in "$L1" "$L2" "$L3"; do
-        out=$(call POST "$API/$CI_COMMIT_TAG/assets/links" "$l")
+        out=$(call POST "$API/$TAG_URI/assets/links" "$l")
         case "$out" in
             *2[0-9][0-9]) ;;
             *'already been taken'*) echo "link exists, skipping" ;;

@@ -1,7 +1,9 @@
 //! Online-or-cached orchestration over [`usos_core::Client`] and a [`Store`].
 //!
 //! For each kind of data there are three functions:
-//! - `refresh_*`: fetch from USOS and store the result; any failure propagates.
+//! - `refresh_*`: fetch from USOS and store the result; any failure propagates. A logout
+//!   ([`forget_account`]) while the fetch runs wins: the result is not stored and the call fails
+//!   with [`StoreError::LoggedOut`](crate::StoreError::LoggedOut).
 //! - `cached_*`: read the store only (fails with [`RepoError::NotCached`] when empty).
 //! - `*_or_cached`: `refresh_*`, and only when the network is unreachable (see
 //!   [`is_network_error`]) fall back to `cached_*`. Authorization (401) and other API errors
@@ -110,18 +112,24 @@ fn from_cache(fetched_at: DateTime<Utc>) -> (Source, bool) {
 // ---- identity ----
 
 /// Ask the server who the token belongs to (`users/user`), store the user and make the account
-/// the active one for this installation.
+/// the active one for this installation. A logout while the request runs wins: nothing is
+/// stored and the result is [`StoreError::LoggedOut`](crate::StoreError::LoggedOut).
 pub async fn refresh_identity(client: &Client, store: &Store) -> Result<Identity> {
+    let base_url = client.base_url().as_str();
+    let epoch = store.session_epoch(base_url)?;
     let user = client.current_user().await?;
-    remember_identity(store, client.base_url().as_str(), user)
+    remember(store, base_url, user, Some(epoch))
 }
 
 /// Make `user` the active account for `base_url` and cache them (what a login does with the
 /// user it learned). Rows of other accounts are left alone.
 pub fn remember_identity(store: &Store, base_url: &str, user: User) -> Result<Identity> {
+    remember(store, base_url, user, None)
+}
+
+fn remember(store: &Store, base_url: &str, user: User, epoch: Option<u64>) -> Result<Identity> {
     let account = account_key(base_url, &user.id);
-    let outcome = store.put_user(&account, &user)?;
-    store.set_active_account(base_url, &account)?;
+    let outcome = store.remember_user(base_url, &account, &user, epoch)?;
     Ok(Identity {
         account,
         user,
@@ -131,15 +139,10 @@ pub fn remember_identity(store: &Store, base_url: &str, user: User) -> Result<Id
 }
 
 /// Logout: delete everything cached for the active account of `base_url` and forget that it
-/// was active. Returns whether there was an active account.
+/// was active. Returns whether there was an active account. A fetch still running for it
+/// stores nothing afterwards (see [`Store::forget_active_account`]).
 pub fn forget_account(store: &Store, base_url: &str) -> Result<bool> {
-    match store.active_account(base_url)? {
-        Some(account) => {
-            store.delete_account(&account)?;
-            Ok(true)
-        }
-        None => Ok(false),
-    }
+    Ok(store.forget_active_account(base_url)?.is_some())
 }
 
 /// The last active account for `base_url` and its cached user, without any network access.
@@ -171,7 +174,7 @@ pub async fn identify_or_cached(client: &Client, store: &Store) -> Result<Identi
 
 pub async fn refresh_terms(client: &Client, store: &Store, account: &str) -> Result<TermsResult> {
     let terms = client.user_terms().await?;
-    let (source, changed) = live(store.put_terms(account, &terms)?);
+    let (source, changed) = live(store.put_terms_if_active(account, &terms)?);
     Ok(TermsResult {
         terms,
         source,
@@ -211,7 +214,7 @@ pub async fn refresh_plan(
     let mut activities = client.timetable_range(from, to).await?;
     // The same predicate the store applies, so live and cached results agree.
     activities.retain(|a| starts_in(a, from, to));
-    let outcome = store.replace_activities(account, from, to, &activities)?;
+    let outcome = store.replace_activities_if_active(account, from, to, &activities)?;
     let days = days_in(from, to);
     Ok(PlanResult {
         activities,
@@ -280,7 +283,7 @@ pub async fn refresh_term_grades(
                 weighted_average: None,
             },
         };
-        let (source, changed) = live(store.put_term_grades(account, id, &grades)?);
+        let (source, changed) = live(store.put_term_grades_if_active(account, id, &grades)?);
         out.push(TermGradesResult {
             grades,
             source,
@@ -344,7 +347,7 @@ pub async fn refresh_course_tests(
     {
         tests = merge_skipped(tests, cached.tests);
     }
-    let (source, changed) = live(store.put_course_tests(account, term_id, &tests)?);
+    let (source, changed) = live(store.put_course_tests_if_active(account, term_id, &tests)?);
     Ok(CourseTestsResult {
         tests,
         source,
@@ -760,6 +763,7 @@ mod tests {
     #[tokio::test]
     async fn refresh_merges_skipped_tests_with_the_cache() {
         let store = Store::open_in_memory().unwrap();
+        store.set_active_account("https://u", "a").unwrap();
         let cached = CourseTests {
             tests: vec![test("old-2", "2")],
             skipped: vec![],
@@ -836,6 +840,88 @@ mod tests {
         assert!(!forget_account(&store, base).unwrap());
     }
 
+    /// A server that runs `forget_account` (a logout from another thread or process) while it
+    /// answers the first request that contains `during`, and answers like [`ok_handler`].
+    async fn serve_with_logout(
+        store: Arc<Store>,
+        during: &'static str,
+    ) -> (String, tokio::task::JoinHandle<()>) {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let base = Arc::new(std::sync::OnceLock::<String>::new());
+        let done = AtomicBool::new(false);
+        let seen = base.clone();
+        let (url, server) = serve(move |req| {
+            if req.contains(during) && !done.swap(true, Ordering::SeqCst) {
+                forget_account(&store, seen.get().unwrap()).unwrap();
+            }
+            ok_handler(req)
+        })
+        .await;
+        base.set(url.clone()).unwrap();
+        (url, server)
+    }
+
+    #[tokio::test]
+    async fn logout_during_identity_refresh_stores_nothing() {
+        let store = Arc::new(Store::open_in_memory().unwrap());
+        let (base, _server) = serve_with_logout(store.clone(), "users/user").await;
+        let c = client(&base);
+
+        assert!(matches!(
+            refresh_identity(&c, &store).await,
+            Err(RepoError::Store(crate::StoreError::LoggedOut))
+        ));
+        assert_eq!(store.active_account(&base).unwrap(), None);
+        let account = account_key(&base, "42");
+        assert!(store.get_user(&account).unwrap().is_none());
+
+        // A refresh that starts after the logout is not affected.
+        let id = refresh_identity(&c, &store).await.unwrap();
+        assert_eq!(id.account, account);
+        assert_eq!(store.active_account(&base).unwrap(), Some(account));
+    }
+
+    #[tokio::test]
+    async fn logout_during_sync_does_not_refill_the_cache() {
+        let store = Arc::new(Store::open_in_memory().unwrap());
+        // The identity is stored, then the logout comes while the terms are fetched.
+        let (base, _server) = serve_with_logout(store.clone(), "fields=terms").await;
+        let c = client(&base);
+
+        assert!(matches!(
+            sync(&c, &store, d("2026-11-04"), 1).await,
+            Err(RepoError::Store(crate::StoreError::LoggedOut))
+        ));
+        let account = account_key(&base, "42");
+        assert_eq!(store.active_account(&base).unwrap(), None);
+        assert!(store.get_user(&account).unwrap().is_none());
+        assert!(store.get_terms(&account).unwrap().is_none());
+
+        // Later writes of fetches that began before the logout are refused too.
+        assert!(matches!(
+            refresh_plan(&c, &store, &account, d("2026-11-02"), d("2026-11-08")).await,
+            Err(RepoError::Store(crate::StoreError::LoggedOut))
+        ));
+        assert_eq!(
+            store
+                .activity_coverage(&account, d("2026-11-02"), d("2026-11-08"))
+                .unwrap()
+                .days_cached,
+            0
+        );
+    }
+
+    #[test]
+    fn logout_bumps_the_session_epoch() {
+        let store = Store::open_in_memory().unwrap();
+        let base = "https://usos.example/";
+        assert_eq!(store.session_epoch(base).unwrap(), 0);
+        // Even without an active account: a first identity refresh may be running.
+        assert!(!forget_account(&store, base).unwrap());
+        assert_eq!(store.session_epoch("https://usos.example").unwrap(), 1);
+        assert_eq!(store.session_epoch("https://other.example/").unwrap(), 0);
+    }
+
     #[test]
     fn switching_accounts_keeps_both_data_sets() {
         let store = Store::open_in_memory().unwrap();
@@ -886,6 +972,7 @@ mod tests {
         })
         .await;
         let store = Store::open_in_memory().unwrap();
+        store.set_active_account("https://u", "a").unwrap();
         let c = client(&base);
         let ids = ["T1".to_owned(), "T2".to_owned()];
         let live = term_grades_or_cached(&c, &store, "a", &ids).await.unwrap();

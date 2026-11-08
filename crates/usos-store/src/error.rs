@@ -24,6 +24,9 @@ pub enum StoreError {
     InvalidPath(String),
     #[error("invalid date range: {from} is after {to}")]
     InvalidRange { from: NaiveDate, to: NaiveDate },
+    /// A logout happened while the data was being fetched; it was not stored.
+    #[error("the account was logged out while its data was being fetched")]
+    LoggedOut,
 }
 
 /// A failure of an online-or-cached operation in [`crate::repo`].

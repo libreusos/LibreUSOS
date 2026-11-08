@@ -8,6 +8,7 @@ import asyncio
 import json
 import os
 import sys
+import tempfile
 import urllib.request
 
 import websockets
@@ -55,9 +56,16 @@ async def main():
                         loc = h["value"]
                 await send("Fetch.continueRequest", {"requestId": params["requestId"]}, sid)
                 if loc.startswith(SCHEME):
-                    fd = os.open(OUT, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-                    with os.fdopen(fd, "w") as f:
-                        f.write(loc)
+                    # Write a fresh 0600 file and rename it over OUT, so a descriptor someone
+                    # already holds on an existing OUT never sees the redirect.
+                    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(OUT)))
+                    try:
+                        with os.fdopen(fd, "w") as f:
+                            f.write(loc)
+                        os.replace(tmp, OUT)
+                    except BaseException:
+                        os.unlink(tmp)
+                        raise
                     print("captured", flush=True)
                     return
 
