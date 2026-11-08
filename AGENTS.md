@@ -25,11 +25,12 @@ cd android
 ./gradlew assembleDebug
 ```
 
-Android builds need the SDK, NDK and cargo-ndk versions listed in the wiki page Building. CI has no lint or test job; run the commands above before pushing.
+Android builds need the SDK, NDK and cargo-ndk versions listed in the wiki page Building. Merge request CI runs fmt, clippy (desktop crate) and the workspace tests; run the commands above before pushing.
 
 ## Conventions
 
 - Code, comments, identifiers and error messages are in English.
+- Docs, comments and scripts are written for any contributor on a typical setup: plain `cargo`/`./gradlew` commands, standard environment variables and package names. Never commit one machine's setup (container or toolbox wrappers, home-directory paths, local helper scripts, agent scratch paths).
 - User-facing Android strings go in `android/app/src/main/res/values/strings.xml` and `values-pl/strings.xml`. Add both.
 - Front ends are thin. API, auth and storage logic belongs in `usos-core` or `usos-store`.
 - The public API of `usos-core` and `usos-store` uses owned types only (no generics, lifetimes or `impl Trait` at the edge), so UniFFI can wrap it.
