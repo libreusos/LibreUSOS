@@ -1,0 +1,37 @@
+name: Mirror
+
+# Pushes every branch and tag to gitlab.com/libreusos/LibreUSOS, which is a read-only mirror.
+on:
+  push:
+    branches: ['**']
+    tags: ['**']
+  delete:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror
+  cancel-in-progress: false
+
+jobs:
+  gitlab:
+    if: github.repository == 'libreusos/LibreUSOS'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch all branches and tags
+        run: |
+          git init -q --bare repo.git
+          git -C repo.git fetch -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" \
+            '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*'
+      - name: Push to GitLab
+        env:
+          GITLAB_MIRROR_KEY: ${{ secrets.GITLAB_MIRROR_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$GITLAB_MIRROR_KEY" > ~/.ssh/mirror_key
+          chmod 600 ~/.ssh/mirror_key
+          echo 'gitlab.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAfuCHKVTjquxvt6CM6tdG4SLp1Btn/nOeHHE5UOzRdf' > ~/.ssh/known_hosts
+          export GIT_SSH_COMMAND='ssh -i ~/.ssh/mirror_key -o IdentitiesOnly=yes'
+          git -C repo.git push --force --prune git@gitlab.com:libreusos/LibreUSOS.git \
+            '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*'
