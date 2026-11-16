@@ -59,7 +59,7 @@ const FOOTER: Text = Text::new(
     "Nieoficjalny klient · GPL-3.0-or-later",
     "Unofficial client · GPL-3.0-or-later",
 );
-const FOOTER_URL: &str = "gitlab.com/libreusos/LibreUSOS";
+const FOOTER_URL: &str = "github.com/libreusos/LibreUSOS";
 const SESSION_ERROR: Text = Text::new(
     "Nie udało się otworzyć zapisanej sesji.",
     "The saved session could not be opened.",

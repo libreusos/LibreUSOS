@@ -25,17 +25,18 @@ ashpd is gated to Linux/FreeBSD so the Windows target builds (checked with
 
 ## CI and releases
 
-`.gitlab-ci.yml` has two desktop jobs. They run on tags and manual pipelines like the other builds, and on
-merge request pipelines when `crates/`, `Cargo.*`, `ci/` or `.gitlab-ci.yml` change. A merge request
-build has no embedded consumer key (tag and manual builds require `USOS_POLSL_CONSUMER_KEY` and
-`USOS_POLSL_CONSUMER_SECRET`, as for the CLI). Tag pipelines attach both archives to the release.
+`.github/workflows/release.yml` has two desktop jobs. They run on tags and manual runs like the other builds, and
+`.github/workflows/ci.yml` runs them on pull requests that change `crates/`, `Cargo.*`, `ci/` or
+`.github/workflows/`. A pull request build has no embedded consumer key and its artifacts are kept 7 days (tag and
+manual builds require `USOS_POLSL_CONSUMER_KEY` and `USOS_POLSL_CONSUMER_SECRET`, as for the CLI). Tag runs
+upload both archives to the release.
 
 | Job | Script | Result |
 | --- | --- | --- |
-| `build-desktop-linux` | `ci/build-desktop-linux.sh`, image `rust:1.99.1-bookworm` | `dist/usos-desktop-<version>-x86_64-linux.tar.gz`: binary, `LICENSE`, `pl.libreusos.LibreUSOS.desktop`, icon (`.png`, `.svg`) |
-| `build-desktop-windows` | `ci/build-desktop-windows.ps1`, SaaS Windows runner (`saas-windows-medium-amd64`) | `dist/usos-desktop-<version>-x86_64-windows.zip`: `usos-desktop.exe`, `LICENSE` |
+| `build-desktop-linux` | `ci/build-desktop-linux.sh` | `dist/usos-desktop-<version>-x86_64-linux.tar.gz`: binary, `LICENSE`, `pl.libreusos.LibreUSOS.desktop`, icon (`.png`, `.svg`) |
+| `build-desktop-windows` | `ci/build-desktop-windows.ps1`, native on a Windows runner | `dist/usos-desktop-<version>-x86_64-windows.zip`: `usos-desktop.exe`, `LICENSE` |
 
-Linux runs a release build (the `test` job runs fmt, clippy and the workspace tests on merge
+Linux runs a release build (the `test` job runs fmt, clippy and the workspace tests on pull
 requests only). The binary is dynamic (GPUI
 cannot be static) and links only libc and X11/xkbcommon: `libc`, `libm`, `libgcc_s`, `libxcb`,
 `libxkbcommon`, `libxkbcommon-x11` (plus `libXau` and `libxcb-xkb` through them). The script fails on any

@@ -5,9 +5,9 @@ Categories:
   - Science & Education
 License: GPL-3.0-or-later
 AuthorName: voxix
-WebSite: https://gitlab.com/libreusos/LibreUSOS
-SourceCode: https://gitlab.com/libreusos/LibreUSOS
-IssueTracker: https://gitlab.com/libreusos/LibreUSOS/-/issues
-Changelog: https://gitlab.com/libreusos/LibreUSOS/-/releases
+WebSite: https://github.com/libreusos/LibreUSOS
+SourceCode: https://github.com/libreusos/LibreUSOS
+IssueTracker: https://github.com/libreusos/LibreUSOS/issues
+Changelog: https://github.com/libreusos/LibreUSOS/releases
 
 AutoName: LibreUSOS

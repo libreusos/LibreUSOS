@@ -10,7 +10,7 @@ Unofficial, open-source client for USOS, the university system used at Polish un
 
 ## Get it
 
-Android APK and CLI builds are on the [releases page](https://gitlab.com/libreusos/LibreUSOS/-/releases).
+Android APK and CLI builds are on the [releases page](https://github.com/libreusos/LibreUSOS/releases).
 
 ## License
 
@@ -22,9 +22,9 @@ the app under Settings.
 
 ## Documentation
 
-- [Home](https://gitlab.com/libreusos/LibreUSOS/-/wikis/home)
-- [Building](https://gitlab.com/libreusos/LibreUSOS/-/wikis/Building)
-- [Architecture](https://gitlab.com/libreusos/LibreUSOS/-/wikis/Architecture)
-- [USOS API notes](https://gitlab.com/libreusos/LibreUSOS/-/wikis/USOS-API-notes)
-- [Releasing](https://gitlab.com/libreusos/LibreUSOS/-/wikis/Releasing)
-- [Design decisions](https://gitlab.com/libreusos/LibreUSOS/-/wikis/Design-decisions)
+- [Home](https://github.com/libreusos/LibreUSOS/wiki/home)
+- [Building](https://github.com/libreusos/LibreUSOS/wiki/Building)
+- [Architecture](https://github.com/libreusos/LibreUSOS/wiki/Architecture)
+- [USOS API notes](https://github.com/libreusos/LibreUSOS/wiki/USOS-API-notes)
+- [Releasing](https://github.com/libreusos/LibreUSOS/wiki/Releasing)
+- [Design decisions](https://github.com/libreusos/LibreUSOS/wiki/Design-decisions)

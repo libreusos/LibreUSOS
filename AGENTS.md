@@ -1,6 +1,6 @@
 # Guide for coding agents
 
-LibreUSOS: unofficial USOS client. Rust core, Android app (Kotlin, Compose), `usos` CLI. Depth lives in the wiki: https://gitlab.com/libreusos/LibreUSOS/-/wikis/home
+LibreUSOS: unofficial USOS client. Rust core, Android app (Kotlin, Compose), `usos` CLI. Depth lives in the wiki: https://github.com/libreusos/LibreUSOS/wiki/home
 
 ## Layout
 
@@ -10,7 +10,7 @@ LibreUSOS: unofficial USOS client. Rust core, Android app (Kotlin, Compose), `us
 - `crates/usos-cli`: the `usos` binary. Output only.
 - `android/`: the app (package `io.gitlab.voxix.libreusos`). Gradle builds `usos-ffi` with cargo-ndk and generates the Kotlin bindings.
 - `android/fdroid/`: F-Droid recipe. `fastlane/metadata/android/`: store text and changelogs (`en-US`, `pl-PL`).
-- `ci/` and `.gitlab-ci.yml`: release builds.
+- `ci/` and `.github/workflows/`: CI and release builds.
 
 ## Commands
 
@@ -25,7 +25,7 @@ cd android
 ./gradlew assembleDebug
 ```
 
-Android builds need the SDK, NDK and cargo-ndk versions listed in the wiki page Building. Merge request CI runs fmt, clippy (desktop crate) and the workspace tests; run the commands above before pushing.
+Android builds need the SDK, NDK and cargo-ndk versions listed in the wiki page Building. Pull request CI runs fmt, clippy (desktop crate) and the workspace tests; run the commands above before pushing.
 
 ## Conventions
 
@@ -44,12 +44,12 @@ Android builds need the SDK, NDK and cargo-ndk versions listed in the wiki page 
 
 - Never commit, print or paste `.env`, keystores (`*.jks`), consumer secrets or tokens. `.env` and `libreusos-release.jks` are gitignored.
 - Do not source `.env` in a shell. Build code reads it by path.
-- The CI variable names are documented in `.env.example` and the wiki page Releasing. Never put values in the repository, logs or MR text.
+- The CI secret names are documented in `.env.example` and the wiki page Releasing. Never put values in the repository, logs or PR text.
 - Tests use fixtures and fake servers. Do not commit real USOS responses with personal data.
 
-## Merge requests
+## Pull requests
 
-- `main` is the default branch. Work on a branch and open a merge request.
-- Release flow and CI variables: the wiki page Releasing.
-- An MR description lists only what the MR changes. No notes, status updates, links to work done elsewhere, or summaries of your process.
-- No attribution in MR descriptions or commit messages: no "Generated with …" lines and no `Co-Authored-By` trailers for tools or agents.
+- `main` is the default branch. Work on a branch and open a pull request.
+- Release flow and CI secrets: the wiki page Releasing.
+- A PR description lists only what the PR changes. No notes, status updates, links to work done elsewhere, or summaries of your process.
+- No attribution in PR descriptions or commit messages: no "Generated with …" lines and no `Co-Authored-By` trailers for tools or agents.
