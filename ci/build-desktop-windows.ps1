@@ -1,5 +1,5 @@
 # Windows x86_64 desktop app (GPUI, MSVC) -> dist/usos-desktop-<version>-x86_64-windows.zip.
-# Runs natively on the GitLab SaaS Windows runner (tag saas-windows-medium-amd64), in PowerShell.
+# Runs natively on the GitHub-hosted Windows runner (windows-latest), in PowerShell.
 #
 # Why not a Linux cross-build like the CLI: gpui-pre-windows compiles its HLSL shaders in build.rs with
 # the Windows SDK's fxc.exe, and only when the build script itself runs on Windows. Cross-compiling fails
@@ -21,7 +21,8 @@ New-Item -ItemType Directory -Force $Dist | Out-Null
 Set-Location $Root
 
 # Version, as in ci/common.sh: the tag without a leading "v", else git describe, else the short SHA.
-$Version = $env:CI_COMMIT_TAG
+$Version = $null
+if ($env:GITHUB_REF_TYPE -eq 'tag') { $Version = $env:GITHUB_REF_NAME }
 if (-not $Version) {
     # Native stderr is an error under 'Stop' in Windows PowerShell; a failing git must fall through.
     $ErrorActionPreference = 'Continue'
@@ -29,15 +30,16 @@ if (-not $Version) {
     finally { $ErrorActionPreference = 'Stop' }
     if ($LASTEXITCODE -ne 0) { $Version = $null }
 }
-if (-not $Version) { $Version = if ($env:CI_COMMIT_SHORT_SHA) { $env:CI_COMMIT_SHORT_SHA } else { 'dev' } }
+if (-not $Version -and $env:GITHUB_SHA) { $Version = $env:GITHUB_SHA.Substring(0, [Math]::Min(8, $env:GITHUB_SHA.Length)) }
+if (-not $Version) { $Version = 'dev' }
 $Version = $Version -replace '^v', ''
 $Name = "usos-desktop-$Version-x86_64-windows"
 
-# Consumer key: required, except in merge request pipelines (protected variables may be missing there,
-# and the artifacts must not carry the secret). The values are never printed.
-if ($env:CI_PIPELINE_SOURCE -eq 'merge_request_event') {
+# Consumer key: required, except in pull request builds (secrets are not available there, and the
+# artifacts must not carry the secret). The values are never printed.
+if ($env:GITHUB_EVENT_NAME -eq 'pull_request') {
     $env:USOS_NO_EMBEDDED_KEY = '1'
-    Write-Host 'note: merge request pipeline, building without an embedded consumer key'
+    Write-Host 'note: pull request build, building without an embedded consumer key'
 } else {
     $missing = @('USOS_POLSL_CONSUMER_KEY', 'USOS_POLSL_CONSUMER_SECRET') |
         Where-Object { -not (Get-Item "env:$_" -ErrorAction SilentlyContinue).Value }
@@ -47,7 +49,7 @@ if ($env:CI_PIPELINE_SOURCE -eq 'merge_request_event') {
     $env:USOS_KEY_BASE_URL = 'https://usosapi.polsl.pl/'
 }
 
-# Cargo state inside the project dir, so the job cache can keep the registry.
+# Cargo state inside the project dir, so the workflow cache can keep the registry.
 $env:CARGO_HOME = Join-Path $Root '.ci\cargo'
 $env:RUSTUP_HOME = Join-Path $Root '.ci\rustup'
 $env:Path = "$env:CARGO_HOME\bin;$env:Path"
@@ -80,7 +82,7 @@ if (-not $fxc) { throw 'fxc.exe not found: the Windows SDK is missing' }
 $env:GPUI_FXC_PATH = $fxc
 Write-Host "fxc: $fxc"
 
-# Rust: the same version as the rust:* images in .gitlab-ci.yml (RUST_VERSION).
+# Rust: the same version as the rust:* images in .github/workflows (RUST_VERSION).
 $RustVersion = if ($env:RUST_VERSION) { $env:RUST_VERSION } else { '1.99.1' }
 if (-not (Get-Command rustup -ErrorAction SilentlyContinue)) {
     Invoke-WebRequest https://win.rustup.rs/x86_64 -OutFile rustup-init.exe

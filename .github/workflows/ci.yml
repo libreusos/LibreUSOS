@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  pull_request:
+    paths:
+      - crates/**
+      - Cargo.toml
+      - Cargo.lock
+      - ci/**
+      - .github/workflows/**
+
+permissions:
+  contents: read
+
+jobs:
+  # fmt, clippy (desktop crate) and the workspace tests.
+  test:
+    runs-on: ubuntu-latest
+    container: rust:1.99.1-bookworm
+    steps:
+      - uses: actions/checkout@v5
+      - run: ci/test.sh
+
+  desktop-linux:
+    runs-on: ubuntu-latest
+    container: rust:1.99.1-bookworm
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - run: ci/build-desktop-linux.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-desktop-linux
+          path: dist/
+          retention-days: 7
+
+  # GPUI compiles its Direct3D shaders with the Windows SDK's fxc.exe in a build script that only runs on
+  # a Windows host, so this one builds natively (MSVC), not cross on Linux.
+  desktop-windows:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    env:
+      RUST_VERSION: "1.99.1"  # keep in sync with the rust:* images
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .ci/cargo/registry/index
+            .ci/cargo/registry/cache
+          key: desktop-windows-v1-${{ hashFiles('Cargo.lock') }}
+          restore-keys: desktop-windows-v1-
+      - run: powershell -NoProfile -ExecutionPolicy Bypass -File ci/build-desktop-windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-desktop-windows
+          path: dist/
+          retention-days: 7

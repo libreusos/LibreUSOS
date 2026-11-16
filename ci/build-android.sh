@@ -14,17 +14,14 @@ export GRADLE_USER_HOME=$ROOT/.ci/gradle   # cached by the job
 export PATH="$CARGO_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
 
 apt-get update -qq
-apt-get install -y -qq --no-install-recommends curl ca-certificates unzip build-essential jq >/dev/null
+apt-get install -y -qq --no-install-recommends curl ca-certificates unzip build-essential >/dev/null
 
-# Release keystore: the Secure File libreusos-release.jks (outside CI, an existing LIBREUSOS_KEYSTORE path).
-if [ -n "${CI_JOB_TOKEN:-}" ]; then
-    FILES="$CI_API_V4_URL/projects/$CI_PROJECT_ID/secure_files"
-    ID=$(curl -fsS -H "JOB-TOKEN: $CI_JOB_TOKEN" "$FILES?per_page=100" \
-        | jq -r '.[] | select(.name == "libreusos-release.jks") | .id')
-    [ -n "$ID" ] || { echo "error: Secure File libreusos-release.jks not found" >&2; exit 1; }
+# Release keystore: LIBREUSOS_KEYSTORE_B64 (base64 of the .jks), else an existing LIBREUSOS_KEYSTORE path.
+if [ -n "${LIBREUSOS_KEYSTORE_B64:-}" ]; then
     LIBREUSOS_KEYSTORE=$(mktemp)
     trap 'rm -f "$LIBREUSOS_KEYSTORE"' EXIT
-    curl -fsS -H "JOB-TOKEN: $CI_JOB_TOKEN" -o "$LIBREUSOS_KEYSTORE" "$FILES/$ID/download"
+    printf '%s' "$LIBREUSOS_KEYSTORE_B64" | base64 -d > "$LIBREUSOS_KEYSTORE"
+    unset LIBREUSOS_KEYSTORE_B64
 fi
 require LIBREUSOS_KEYSTORE
 export LIBREUSOS_KEYSTORE

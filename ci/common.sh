@@ -4,7 +4,13 @@ DIST="$ROOT/dist"
 mkdir -p "$DIST"
 
 # Version: the tag without a leading "v", else git describe, else the short SHA.
-VERSION=${CI_COMMIT_TAG:-$(git -C "$ROOT" describe --tags --always 2>/dev/null || echo "${CI_COMMIT_SHORT_SHA:-dev}")}
+VERSION=
+if [ "${GITHUB_REF_TYPE:-}" = tag ]; then
+    VERSION=${GITHUB_REF_NAME:-}
+fi
+[ -n "$VERSION" ] || VERSION=$(git -C "$ROOT" describe --tags --always 2>/dev/null || true)
+[ -n "$VERSION" ] || VERSION=$(printf '%.8s' "${GITHUB_SHA:-}")
+[ -n "$VERSION" ] || VERSION=dev
 VERSION=${VERSION#v}
 
 # require VAR...: fail fast, before any compiling, naming the unset variables.
@@ -30,12 +36,12 @@ remap_flags() {
     printf -- '--remap-path-prefix=%s=/libreusos --remap-path-prefix=%s=/cargo' "$ROOT" "$CARGO_HOME"
 }
 
-# use_consumer_key_unless_mr: like use_consumer_key, but a merge request pipeline builds without an
-# embedded key (protected variables may be missing there, and its artifacts must not carry the secret).
+# use_consumer_key_unless_mr: like use_consumer_key, but a pull request build has no embedded key
+# (secrets are not available to it, and its artifacts must not carry the secret).
 use_consumer_key_unless_mr() {
-    if [ "${CI_PIPELINE_SOURCE:-}" = merge_request_event ]; then
+    if [ "${GITHUB_EVENT_NAME:-}" = pull_request ]; then
         export USOS_NO_EMBEDDED_KEY=1
-        echo "note: merge request pipeline, building without an embedded consumer key"
+        echo "note: pull request build, building without an embedded consumer key"
     else
         use_consumer_key
     fi
